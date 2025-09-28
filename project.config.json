@@ -1,0 +1,41 @@
+{
+  "description": "项目配置文件。",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": false,
+    "postcss": true,
+    "minified": false,
+    "newFeature": false,
+    "coverView": true,
+    "autoAudits": false,
+    "showShadowRootInWxmlPanel": true,
+    "scopeDataCheck": false,
+    "checkInvalidKey": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "lazyCodeLoading": "requiredComponents",
+    "useStaticServer": true,
+    "enhance": false,
+    "showES6CompileOption": false,
+    "minifyWXSS": false,
+    "minifyWXML": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.10.0",
+  "appid": "wx0362fde8b3ad828f",
+  "projectname": "myflower",
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

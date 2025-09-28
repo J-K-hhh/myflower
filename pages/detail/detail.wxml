@@ -1,0 +1,188 @@
+<!--pages/detail/detail.wxml-->
+<view class="container">
+  <swiper class="image-swiper" indicator-dots="true" autoplay="true" interval="3000" duration="500">
+    <swiper-item wx:for="{{plant.images}}" wx:key="*this">
+      <view class="image-container">
+        <image src="{{item}}" class="swiper-image" mode="aspectFill" bindtap="previewImage" data-src="{{item}}"></image>
+        <view class="image-actions" wx:if="{{plant.images.length > 1}}">
+          <text class="action-btn" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
+          <text class="action-btn delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
+        </view>
+        <view class="cover-badge" wx:if="{{index === 0}}">题图</view>
+      </view>
+    </swiper-item>
+  </swiper>
+
+  <view class="content-box">
+    <!-- 识别名称 -->
+    <view class="plant-title-container">
+      <text class="plant-title" wx:if="{{!isEditingName}}">{{plant.aiResult.name || '未知植物'}}</text>
+      <input class="plant-title-edit" wx:if="{{isEditingName}}" value="{{plant.aiResult.name || '未知植物'}}" bindinput="onNameInput" bindblur="saveName" focus="{{isEditingName}}" />
+      <text class="edit-icon" bindtap="toggleNameEdit">{{isEditingName ? '✓' : '✏️'}}</text>
+    </view>
+    
+    <!-- 养护信息 -->
+    <view class="info-section">
+      <view class="info-card">
+        <text class="info-icon">📅</text>
+        <view class="info-text">
+          <view class="info-label">记录时间</view>
+          <view class="info-value">{{plant.createDate}}</view>
+        </view>
+      </view>
+      <view class="info-card" bindtap="viewWateringHistory">
+        <text class="info-icon">💧</text>
+        <view class="info-text">
+          <view class="info-label">浇水记录</view>
+          <view class="info-value">{{plant.wateringHistory && plant.wateringHistory.length > 0 ? plant.wateringHistory.length + '次记录' : '暂无记录'}}</view>
+        </view>
+        <text class="history-btn" wx:if="{{plant.wateringHistory && plant.wateringHistory.length > 0}}">查看详情</text>
+      </view>
+      <view class="info-card" bindtap="viewFertilizingHistory">
+        <text class="info-icon">🌱</text>
+        <view class="info-text">
+          <view class="info-label">施肥记录</view>
+          <view class="info-value">{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0 ? plant.fertilizingHistory.length + '次记录' : '暂无记录'}}</view>
+        </view>
+        <text class="history-btn" wx:if="{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0}}">查看详情</text>
+      </view>
+      <view class="info-card" bindtap="viewHealthAnalyses" wx:if="{{selectedModel === 'qwen-vl'}}">
+        <text class="info-icon">🏥</text>
+        <view class="info-text">
+          <view class="info-label">健康分析</view>
+          <view class="info-value">{{plant.healthAnalyses && plant.healthAnalyses.length > 0 ? plant.healthAnalyses.length + '次分析' : '暂无分析'}}</view>
+        </view>
+        <text class="history-btn" wx:if="{{plant.healthAnalyses && plant.healthAnalyses.length > 0}}">查看详情</text>
+      </view>
+    </view>
+
+    <!-- AI 百科信息 -->
+    <view class="baike-section" wx:if="{{plant.aiResult.baike.description}}">
+      <view class="section-title">
+        <text class="title-icon">📚</text>
+        <text>养护小百科</text>
+      </view>
+      <view class="baike-description">{{plant.aiResult.baike.description}}</view>
+      <view wx:if="{{plant.aiResult.baike.baike_url}}" class="baike-link" bindtap="goToBaike">查看更多信息</view>
+    </view>
+
+    <!-- 通义千问VL的详细结果 -->
+    <view class="qwen-detail-section" wx:if="{{plant.aiResult.model === 'qwen-vl'}}">
+      <view class="section-title">
+        <text class="title-icon">🤖</text>
+        <text>AI智能分析</text>
+      </view>
+      
+      <!-- 植物学名 -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.scientificName}}">
+        <view class="qwen-field-title">🌿 学名</view>
+        <view class="qwen-field-content">{{plant.aiResult.scientificName}}</view>
+      </view>
+      
+      <!-- 浇水tips -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.wateringTips}}">
+        <view class="qwen-field-title">💧 浇水tips</view>
+        <view class="qwen-field-content">{{plant.aiResult.wateringTips}}</view>
+      </view>
+      
+      <!-- 光照tips -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.lightingTips}}">
+        <view class="qwen-field-title">☀️ 光照tips</view>
+        <view class="qwen-field-content">{{plant.aiResult.lightingTips}}</view>
+      </view>
+      
+      <!-- 健康信息 -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.healthInfo}}">
+        <view class="qwen-field-title">🏥 健康信息</view>
+        <view class="qwen-field-content">{{plant.aiResult.healthInfo}}</view>
+      </view>
+      
+      <!-- 综合养护tips -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.careTips}}">
+        <view class="qwen-field-title">🌱 综合养护tips</view>
+        <view class="qwen-field-content">{{plant.aiResult.careTips}}</view>
+      </view>
+      
+      <!-- 小知识 -->
+      <view class="qwen-field" wx:if="{{plant.aiResult.funFacts}}">
+        <view class="qwen-field-title">💡 小知识</view>
+        <view class="qwen-field-content">{{plant.aiResult.funFacts}}</view>
+      </view>
+    </view>
+
+    <!-- 百度AI的养护要点 -->
+    <view class="care-tips-section" wx:if="{{plant.aiResult.careTips && plant.aiResult.model !== 'qwen-vl'}}">
+      <view class="section-title">
+        <text class="title-icon">💡</text>
+        <text>养护要点</text>
+      </view>
+      <view class="care-tips">
+        <view class="tip-item" wx:if="{{plant.aiResult.careTips.watering}}">
+          <text class="tip-icon">💧</text>
+          <view class="tip-content">
+            <text class="tip-label">浇水</text>
+            <text class="tip-text">{{plant.aiResult.careTips.watering}}</text>
+          </view>
+        </view>
+        <view class="tip-item" wx:if="{{plant.aiResult.careTips.lighting}}">
+          <text class="tip-icon">☀️</text>
+          <view class="tip-content">
+            <text class="tip-label">光照</text>
+            <text class="tip-text">{{plant.aiResult.careTips.lighting}}</text>
+          </view>
+        </view>
+        <view class="tip-item" wx:if="{{plant.aiResult.careTips.temperature}}">
+          <text class="tip-icon">🌡️</text>
+          <view class="tip-content">
+            <text class="tip-label">温度</text>
+            <text class="tip-text">{{plant.aiResult.careTips.temperature}}</text>
+          </view>
+        </view>
+        <view class="tip-item" wx:if="{{plant.aiResult.careTips.humidity}}">
+          <text class="tip-icon">💨</text>
+          <view class="tip-content">
+            <text class="tip-label">湿度</text>
+            <text class="tip-text">{{plant.aiResult.careTips.humidity}}</text>
+          </view>
+        </view>
+        <view class="tip-item" wx:if="{{plant.aiResult.careTips.fertilizing}}">
+          <text class="tip-icon">🌱</text>
+          <view class="tip-content">
+            <text class="tip-label">施肥</text>
+            <text class="tip-text">{{plant.aiResult.careTips.fertilizing}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="footer-actions">
+    <button class="action-button" bindtap="updateWatering">💧 更新浇水</button>
+    <button class="action-button" bindtap="updateFertilizing">🌱 更新施肥</button>
+    <button class="action-button" bindtap="takePhoto">📷 为它拍照</button>
+    <button class="action-button-danger" bindtap="deletePlant">🗑️ 删除绿植</button>
+  </view>
+
+  <!-- 历史记录弹窗 -->
+  <view class="history-modal" wx:if="{{showHistoryModal}}" bindtap="closeHistoryModal">
+    <view class="history-content" catchtap="stopPropagation">
+      <view class="history-header">
+        <text class="history-title">{{historyModalTitle}}</text>
+        <text class="close-btn" bindtap="closeHistoryModal">✕</text>
+      </view>
+      <scroll-view class="history-list" scroll-y="true">
+        <view class="history-item" wx:for="{{historyModalData}}" wx:key="timestamp">
+          <view class="history-date">{{item.formattedDate}} {{item.formattedTime}}</view>
+          <view class="history-content" wx:if="{{item.healthAnalysis}}">
+            <text class="health-analysis">{{item.healthAnalysis}}</text>
+          </view>
+        </view>
+        <view class="history-empty" wx:if="{{historyModalData.length === 0}}">
+          <text class="empty-icon">{{historyModalIcon}}</text>
+          <text class="empty-text">暂无记录</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

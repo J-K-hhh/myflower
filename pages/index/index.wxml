@@ -1,0 +1,52 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 背景图片 -->
+  <image class="bg-image" src="/images/index-bg.png" mode="aspectFill"></image>
+  
+  <!-- 如果列表为空，显示提示信息 -->
+  <view wx:if="{{plantList.length === 0}}" class="empty-container">
+    <view class="empty-icon">🌱</view>
+    <view class="empty-text">您的阳台花园还在等第一株小绿植呢</view>
+    <view class="empty-tip">点击下方的"+"按钮开始记录吧</view>
+  </view>
+
+  <!-- 绿植列表 -->
+  <view wx:else class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}}">
+    <!-- 动态状态图标 -->
+    <view class="status-icon-container">
+      <view class="status-icon">{{statusIcon}}</view>
+      <view class="status-text">{{statusText}}</view>
+    </view>
+    
+    <view class="plant-card" wx:for="{{plantList}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+      <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
+      <view class="card-content">
+        <view class="card-title">{{item.aiResult.name || '未知植物'}}</view>
+        <view class="card-info">
+          <view class="info-item" wx:if="{{item.lastWateringDate}}">
+            <text class="info-icon">💧</text>
+            <text>{{item.lastWateringDate}}</text>
+          </view>
+          <view class="info-item" wx:if="{{item.lastFertilizingDate && !item.lastWateringDate}}">
+            <text class="info-icon">🌱</text>
+            <text>{{item.lastFertilizingDate}}</text>
+          </view>
+          <view class="info-item" wx:if="{{!item.lastWateringDate && !item.lastFertilizingDate}}">
+            <text class="info-icon">📅</text>
+            <text>{{item.createDate}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-button" bindtap="goToAdd">
+    <text class="add-icon">+</text>
+  </view>
+
+  <!-- 设置按钮 -->
+  <view class="settings-button" bindtap="goToSettings">
+    <text class="settings-icon">⚙️</text>
+  </view>
+</view>

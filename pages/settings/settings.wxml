@@ -1,0 +1,79 @@
+<!--pages/settings/settings.wxml-->
+<view class="container">
+  <!-- 背景图片 -->
+  <image class="bg-image" src="/images/add-bg.png" mode="aspectFill"></image>
+  <view class="section">
+    <view class="section-title">模型设置</view>
+    <radio-group bindchange="onModelChange">
+      <view class="model-list">
+        <view class="model-item" wx:for="{{models}}" wx:key="id">
+          <view class="model-info">
+            <view class="model-name">{{item.name}}</view>
+            <view class="model-desc">{{item.description}}</view>
+          </view>
+          <radio 
+            class="model-radio" 
+            value="{{item.id}}"
+            checked="{{selectedModel === item.id}}"
+          />
+        </view>
+      </view>
+    </radio-group>
+    <view class="test-button" bindtap="testModelConnection">
+      <text>测试模型连接</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">存储限制</view>
+    <view class="setting-item">
+      <view class="setting-label">每株植物最多保存照片数</view>
+      <input 
+        class="setting-input" 
+        type="number" 
+        value="{{maxPhotos}}" 
+        bindinput="onMaxPhotosChange"
+        placeholder="10"
+      />
+    </view>
+    <view class="setting-item">
+      <view class="setting-label">浇水/施肥记录条数</view>
+      <input 
+        class="setting-input" 
+        type="number" 
+        value="{{maxRecords}}" 
+        bindinput="onMaxRecordsChange"
+        placeholder="50"
+      />
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">位置服务</view>
+    <view class="setting-item">
+      <view class="setting-label">位置权限</view>
+      <view class="setting-value">
+        <text wx:if="{{locationEnabled}}">已开启</text>
+        <text wx:else class="link-text" bindtap="requestLocationPermission">点击开启</text>
+      </view>
+    </view>
+    <view class="setting-item">
+      <view class="setting-label">当前位置</view>
+      <view class="setting-value">
+        <text wx:if="{{currentLocation}}">{{currentLocation.latitude}}, {{currentLocation.longitude}}</text>
+        <text wx:else class="location-placeholder">未获取位置</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">数据管理</view>
+    <view class="danger-button" bindtap="clearAllData">
+      <text>清除所有数据</text>
+    </view>
+  </view>
+
+  <view class="save-button" bindtap="saveSettings">
+    <text>保存设置</text>
+  </view>
+</view>

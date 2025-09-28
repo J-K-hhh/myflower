@@ -1,0 +1,51 @@
+/* components/custom-loading/custom-loading.wxss */
+.custom-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+}
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10rpx;
+}
+
+.spinner-dot {
+  width: 8rpx;
+  height: 8rpx;
+  background-color: #4caf50;
+  border-radius: 50%;
+  margin: 0 4rpx;
+  animation: loading-bounce 1.4s ease-in-out infinite both;
+}
+
+.spinner-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.spinner-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.spinner-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes loading-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: #666;
+  text-align: center;
+}

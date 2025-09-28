@@ -1,0 +1,200 @@
+/* pages/settings/settings.wxss */
+.container {
+  padding: 20rpx;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 背景图片 */
+.bg-image {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.05) 50%, rgba(255, 255, 255, 0.9) 100%);
+  z-index: 1;
+}
+
+/* 添加装饰性水印 */
+.container::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(76, 175, 80, 0.08) 3px, transparent 3px),
+    radial-gradient(circle at 85% 25%, rgba(139, 195, 74, 0.06) 2px, transparent 2px),
+    radial-gradient(circle at 10% 85%, rgba(76, 175, 80, 0.05) 4px, transparent 4px),
+    radial-gradient(circle at 90% 90%, rgba(139, 195, 74, 0.07) 2px, transparent 2px);
+  background-size: 200rpx 200rpx, 150rpx 150rpx, 250rpx 250rpx, 120rpx 120rpx;
+  z-index: 0.5;
+  pointer-events: none;
+}
+
+.section {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.8);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 30rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.model-list {
+  margin-bottom: 30rpx;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.model-item:last-child {
+  border-bottom: none;
+}
+
+.model-info {
+  flex: 1;
+}
+
+.model-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.model-desc {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.model-radio {
+  margin-left: 20rpx;
+}
+
+.test-button {
+  background: linear-gradient(135deg, #4CAF50 0%, #388e3c 100%);
+  color: white;
+  padding: 20rpx 30rpx;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  margin-top: 20rpx;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 4rpx 12rpx rgba(76, 175, 80, 0.3);
+  border: none;
+  font-weight: 500;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+  min-height: 80rpx; /* 确保最小高度一致 */
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: 28rpx;
+  color: #333;
+  flex: 1;
+  min-width: 200rpx; /* 确保标签部分有最小宽度 */
+}
+
+.setting-input {
+  width: 120rpx;
+  text-align: right;
+  font-size: 28rpx;
+  color: #666;
+  border: 1rpx solid #ddd;
+  border-radius: 4rpx;
+  padding: 10rpx;
+  flex-shrink: 0; /* 防止输入框被压缩 */
+}
+
+.setting-value {
+  font-size: 28rpx;
+  color: #666;
+  text-align: right;
+  min-width: 120rpx; /* 与输入框保持相同宽度 */
+  flex-shrink: 0; /* 防止被压缩 */
+  word-break: break-all; /* 长文本换行 */
+}
+
+.link-text {
+  color: #007AFF;
+  text-decoration: underline;
+}
+
+.location-placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.danger-button {
+  background: linear-gradient(135deg, #e64340 0%, #c62828 100%);
+  color: white;
+  padding: 20rpx 30rpx;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 4rpx 12rpx rgba(230, 67, 64, 0.3);
+  border: none;
+  font-weight: 500;
+}
+
+.save-button {
+  background: linear-gradient(135deg, #007AFF 0%, #0056b3 100%);
+  color: white;
+  padding: 30rpx;
+  border-radius: 16rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-top: 40rpx;
+  box-shadow: 0 6rpx 20rpx rgba(0, 122, 255, 0.4);
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  position: relative;
+  z-index: 2;
+}

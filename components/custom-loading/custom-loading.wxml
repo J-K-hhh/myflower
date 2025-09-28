@@ -1,0 +1,9 @@
+<!--components/custom-loading/custom-loading.wxml-->
+<view class="custom-loading {{customClass}}">
+  <view class="loading-spinner">
+    <view class="spinner-dot"></view>
+    <view class="spinner-dot"></view>
+    <view class="spinner-dot"></view>
+  </view>
+  <text class="loading-text" wx:if="{{text}}">{{text}}</text>
+</view>
