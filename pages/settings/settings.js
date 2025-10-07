@@ -30,7 +30,7 @@ Page({
 
   loadSettings: function() {
     const settings = wx.getStorageSync('appSettings') || {};
-    const selectedModel = settings.selectedModel || 'qwen-vl'; // 默认使用通义千问VL
+    const selectedModel = settings.selectedModel || 'baidu'; // 默认使用百度
     console.log('加载设置，选中模型:', selectedModel);
     this.setData({
       selectedModel: selectedModel,

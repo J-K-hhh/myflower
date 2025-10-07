@@ -1,4 +1,5 @@
 const modelUtils = require('../../utils/model_utils.js');
+const cloudUtils = require('../../utils/cloud_utils.js');
 
 Page({
   data: {
@@ -14,7 +15,10 @@ Page({
     locationEnabled: false,
     selectedModel: 'baidu',
     maxPhotos: 10,
-    maxRecords: 50
+    maxRecords: 50,
+    // V0.3 图片备忘功能
+    editingMemoIndex: -1,
+    editingMemo: ''
   },
   onLoad: function (options) {
     if (options.id) {
@@ -45,7 +49,7 @@ Page({
   loadSettings: function() {
     const settings = wx.getStorageSync('appSettings') || {};
     this.setData({
-      selectedModel: settings.selectedModel || 'qwen-vl', // 默认使用通义千问VL
+      selectedModel: settings.selectedModel || 'baidu', // 默认使用百度
       maxPhotos: settings.maxPhotos || 10,
       maxRecords: settings.maxRecords || 50
     });
@@ -174,12 +178,55 @@ Page({
       camera: 'back',
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
-        
-        // 如果使用qwen-vl模型，进行健康分析
-        if (this.data.selectedModel === 'qwen-vl') {
-          this.analyzePlantHealth(tempFilePath);
+        // Prefer uploading to cloud; fallback to saveFile
+        if (cloudUtils.isCloudAvailable()) {
+          cloudUtils.uploadImage(tempFilePath)
+            .then(fileID => {
+              // We store the cloud fileID and use it in imageInfos
+              if (this.data.selectedModel === 'qwen-vl') {
+                this.analyzePlantHealth(tempFilePath); // analysis needs local path
+              }
+              this.addPhotoToPlant(fileID);
+            })
+            .catch(() => {
+              wx.saveFile({
+                tempFilePath: tempFilePath,
+                success: (saveRes) => {
+                  const savedPath = saveRes.savedFilePath;
+                  if (this.data.selectedModel === 'qwen-vl') {
+                    this.analyzePlantHealth(savedPath);
+                  } else {
+                    this.addPhotoToPlant(savedPath);
+                  }
+                },
+                fail: () => {
+                  if (this.data.selectedModel === 'qwen-vl') {
+                    this.analyzePlantHealth(tempFilePath);
+                  } else {
+                    this.addPhotoToPlant(tempFilePath);
+                  }
+                }
+              });
+            });
         } else {
-          this.addPhotoToPlant(tempFilePath);
+          wx.saveFile({
+            tempFilePath: tempFilePath,
+            success: (saveRes) => {
+              const savedPath = saveRes.savedFilePath;
+              if (this.data.selectedModel === 'qwen-vl') {
+                this.analyzePlantHealth(savedPath);
+              } else {
+                this.addPhotoToPlant(savedPath);
+              }
+            },
+            fail: () => {
+              if (this.data.selectedModel === 'qwen-vl') {
+                this.analyzePlantHealth(tempFilePath);
+              } else {
+                this.addPhotoToPlant(tempFilePath);
+              }
+            }
+          });
         }
       },
       fail: (err) => {
@@ -224,11 +271,28 @@ Page({
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
+        // 初始化图片信息数组
+        if (!plant.imageInfos) {
+          plant.imageInfos = [];
+        }
+        
         // 如果达到照片数量限制，删除最旧的照片
         if (plant.images && plant.images.length >= this.data.maxPhotos) {
           plant.images.pop();
+          plant.imageInfos.pop();
         }
+        
+        // 添加新图片和图片信息
+        const currentTime = Date.now();
+        const imageInfo = {
+          path: filePath,
+          timestamp: currentTime,
+          date: new Date(currentTime).toISOString().split('T')[0],
+          memo: ''
+        };
+        
         plant.images.unshift(filePath);
+        plant.imageInfos.unshift(imageInfo);
         
         // 保存健康分析结果
         if (healthAnalysis) {
@@ -238,7 +302,7 @@ Page({
           plant.healthAnalyses.unshift({
             ...healthAnalysis,
             imagePath: filePath,
-            timestamp: Date.now()
+            timestamp: currentTime
           });
           // 限制健康分析记录数量
           if (plant.healthAnalyses.length > this.data.maxRecords) {
@@ -249,8 +313,13 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    if (cloudUtils && cloudUtils.isCloudAvailable) {
+      try { cloudUtils.savePlantList(updatedList); } catch (e) {}
+    }
     this.setData({
       'plant.images': updatedList.find(p => p.id == this.data.plantId).images,
+      'plant.imageInfos': updatedList.find(p => p.id == this.data.plantId).imageInfos || [],
       'plant.healthAnalyses': updatedList.find(p => p.id == this.data.plantId).healthAnalyses || []
     });
     wx.showToast({ title: '照片已添加', icon: 'success' });
@@ -258,13 +327,16 @@ Page({
   setCoverImage: function (e) {
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
+    const imageInfos = this.data.plant.imageInfos || [];
     if (index === 0) {
       wx.showToast({ title: '已经是题图了', icon: 'none' });
       return;
     }
     const newImages = [...images];
+    const newImageInfos = [...imageInfos];
     [newImages[0], newImages[index]] = [newImages[index], newImages[0]];
-    this.updatePlantImages(newImages);
+    [newImageInfos[0], newImageInfos[index]] = [newImageInfos[index], newImageInfos[0]];
+    this.updatePlantImages(newImages, newImageInfos);
     wx.showToast({ title: '已设为题图', icon: 'success' });
   },
   deleteImage: function (e) {
@@ -280,22 +352,30 @@ Page({
       success: (res) => {
         if (res.confirm) {
           const newImages = images.filter((_, i) => i !== index);
-          this.updatePlantImages(newImages);
+          const newImageInfos = (this.data.plant.imageInfos || []).filter((_, i) => i !== index);
+          this.updatePlantImages(newImages, newImageInfos);
           wx.showToast({ title: '照片已删除', icon: 'success' });
         }
       }
     });
   },
-  updatePlantImages: function (newImages) {
+  updatePlantImages: function (newImages, newImageInfos = null) {
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
         plant.images = newImages;
+        if (newImageInfos) {
+          plant.imageInfos = newImageInfos;
+        }
       }
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
-    this.setData({ 'plant.images': newImages });
+    const updateData = { 'plant.images': newImages };
+    if (newImageInfos) {
+      updateData['plant.imageInfos'] = newImageInfos;
+    }
+    this.setData(updateData);
   },
   updatePlantData: function (field, value, successMsg) {
     const plantList = wx.getStorageSync('plantList') || [];
@@ -398,6 +478,97 @@ Page({
     });
   },
   stopPropagation: function () {},
+  
+  // V0.3 图片备忘功能
+  editImageMemo: function(e) {
+    const index = e.currentTarget.dataset.index;
+    const currentMemo = this.data.plant.imageInfos && this.data.plant.imageInfos[index] ? 
+                       this.data.plant.imageInfos[index].memo : '';
+    this.setData({
+      editingMemoIndex: index,
+      editingMemo: currentMemo
+    });
+  },
+  
+  onMemoInput: function(e) {
+    this.setData({ editingMemo: e.detail.value });
+  },
+  
+  saveImageMemo: function() {
+    const index = this.data.editingMemoIndex;
+    const memo = this.data.editingMemo.trim();
+    
+    const plantList = wx.getStorageSync('plantList') || [];
+    const updatedList = plantList.map(plant => {
+      if (plant.id == this.data.plantId) {
+        if (!plant.imageInfos) {
+          plant.imageInfos = [];
+        }
+        if (plant.imageInfos[index]) {
+          plant.imageInfos[index].memo = memo;
+        }
+      }
+      return plant;
+    });
+    
+    wx.setStorageSync('plantList', updatedList);
+    this.setData({
+      'plant.imageInfos': updatedList.find(p => p.id == this.data.plantId).imageInfos,
+      editingMemoIndex: -1,
+      editingMemo: ''
+    });
+    wx.showToast({ title: '备忘已保存', icon: 'success' });
+  },
+  
+  cancelMemoEdit: function() {
+    this.setData({
+      editingMemoIndex: -1,
+      editingMemo: ''
+    });
+  },
+  
+  // V0.3 图片顺序管理功能
+  moveImageUp: function(e) {
+    const index = e.currentTarget.dataset.index;
+    if (index === 0) {
+      wx.showToast({ title: '已经是第一张了', icon: 'none' });
+      return;
+    }
+    
+    const images = [...this.data.plant.images];
+    const imageInfos = [...(this.data.plant.imageInfos || [])];
+    
+    // 交换位置
+    [images[index], images[index - 1]] = [images[index - 1], images[index]];
+    if (imageInfos.length > index) {
+      [imageInfos[index], imageInfos[index - 1]] = [imageInfos[index - 1], imageInfos[index]];
+    }
+    
+    this.updatePlantImages(images, imageInfos);
+    wx.showToast({ title: '图片顺序已调整', icon: 'success' });
+  },
+  
+  moveImageDown: function(e) {
+    const index = e.currentTarget.dataset.index;
+    const images = this.data.plant.images;
+    if (index === images.length - 1) {
+      wx.showToast({ title: '已经是最后一张了', icon: 'none' });
+      return;
+    }
+    
+    const newImages = [...images];
+    const newImageInfos = [...(this.data.plant.imageInfos || [])];
+    
+    // 交换位置
+    [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+    if (newImageInfos.length > index + 1) {
+      [newImageInfos[index], newImageInfos[index + 1]] = [newImageInfos[index + 1], newImageInfos[index]];
+    }
+    
+    this.updatePlantImages(newImages, newImageInfos);
+    wx.showToast({ title: '图片顺序已调整', icon: 'success' });
+  },
+  
   deletePlant: function () {
     wx.showModal({
       title: '确认删除',

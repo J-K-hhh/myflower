@@ -37,7 +37,7 @@ const MODEL_CONFIGS = {
  */
 function getCurrentModel() {
   const settings = wx.getStorageSync('appSettings') || {};
-  return settings.selectedModel || 'qwen-vl-max-2025-04-08';
+  return settings.selectedModel || 'baidu';
 }
 
 /**
@@ -423,7 +423,10 @@ function recognizePlant(filePath, location = null, onProgress = null) {
   const model = getCurrentModel();
   
   if (model === 'baidu') {
-    return baiduAi.recognizePlant(filePath);
+    return baiduAi.recognizePlant(filePath).then(res => ({
+      ...res,
+      model: 'baidu'
+    }));
   } else if (model.startsWith('qwen-vl')) {
     return recognizePlantWithQwenVL(filePath, location, onProgress);
   } else if (model === 'gemini-pro-vision') {

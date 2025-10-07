@@ -1,4 +1,5 @@
 const modelUtils = require('../../utils/model_utils.js');
+const cloudUtils = require('../../utils/cloud_utils.js');
 Page({
   data: {
     tempImagePath: '',
@@ -30,7 +31,7 @@ Page({
   loadSettings: function() {
     const settings = wx.getStorageSync('appSettings') || {};
     this.setData({
-      selectedModel: settings.selectedModel || 'qwen-vl' // 默认使用通义千问VL
+      selectedModel: settings.selectedModel || 'baidu' // 默认使用百度
     });
   },
   checkLocationPermission: function() {
@@ -99,11 +100,46 @@ Page({
       camera: 'back',
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
-        this.setData({
-          tempImagePath: tempFilePath,
-          aiResult: {}
-        });
-        this.recognizeImage(tempFilePath);
+        // Upload to cloud when available; fallback to local saveFile
+        if (cloudUtils.isCloudAvailable()) {
+          cloudUtils.uploadImage(tempFilePath)
+            .then(fileID => {
+              // Use cloud fileID as image reference
+              this.setData({
+                tempImagePath: fileID,
+                aiResult: {}
+              });
+              // For recognition, still need a real file path; use tempFilePath
+              this.recognizeImage(tempFilePath);
+            })
+            .catch(() => {
+              wx.saveFile({
+                tempFilePath: tempFilePath,
+                success: (saveRes) => {
+                  const savedPath = saveRes.savedFilePath;
+                  this.setData({ tempImagePath: savedPath, aiResult: {} });
+                  this.recognizeImage(savedPath);
+                },
+                fail: () => {
+                  this.setData({ tempImagePath: tempFilePath, aiResult: {} });
+                  this.recognizeImage(tempFilePath);
+                }
+              });
+            });
+        } else {
+          wx.saveFile({
+            tempFilePath: tempFilePath,
+            success: (saveRes) => {
+              const savedPath = saveRes.savedFilePath;
+              this.setData({ tempImagePath: savedPath, aiResult: {} });
+              this.recognizeImage(savedPath);
+            },
+            fail: () => {
+              this.setData({ tempImagePath: tempFilePath, aiResult: {} });
+              this.recognizeImage(tempFilePath);
+            }
+          });
+        }
       }
     })
   },
@@ -268,6 +304,10 @@ Page({
     };
     plantList.unshift(newPlant);
     wx.setStorageSync('plantList', plantList);
+    // Persist to cloud database (best-effort)
+    if (cloudUtils.isCloudAvailable()) {
+      cloudUtils.savePlantList(plantList);
+    }
     wx.showToast({
       title: '🌱 种下成功！',
       icon: 'success',

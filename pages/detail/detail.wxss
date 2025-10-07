@@ -57,6 +57,139 @@
   backdrop-filter: blur(10rpx);
 }
 
+/* V0.3 图片信息显示样式 */
+.image-info-overlay {
+  position: absolute;
+  bottom: 20rpx;
+  left: 20rpx;
+  right: 20rpx;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10rpx);
+  border-radius: 15rpx;
+  padding: 15rpx 20rpx;
+  z-index: 5;
+}
+
+.image-date {
+  color: white;
+  font-size: 26rpx;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+  display: flex;
+  align-items: center;
+}
+
+.image-memo {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 24rpx;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 0.3s ease;
+}
+
+.image-memo:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.add-memo-btn {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 24rpx;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1rpx dashed rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.add-memo-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.memo-edit-container {
+  margin-top: 10rpx;
+}
+
+.memo-edit-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8rpx;
+  padding: 12rpx;
+  font-size: 24rpx;
+  color: #333;
+  border: 2rpx solid #00d4aa;
+  box-sizing: border-box;
+  min-height: 60rpx;
+  max-height: 120rpx;
+}
+
+.memo-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15rpx;
+  margin-top: 10rpx;
+}
+
+.memo-btn {
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.memo-btn.save {
+  background: #00d4aa;
+  color: white;
+}
+
+.memo-btn.save:active {
+  background: #00a085;
+}
+
+.memo-btn.cancel {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.memo-btn.cancel:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* V0.3 图片顺序调整样式 */
+.image-order-actions {
+  position: absolute;
+  top: 20rpx;
+  left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  z-index: 10;
+}
+
+.order-btn {
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  backdrop-filter: blur(10rpx);
+  transition: all 0.3s ease;
+}
+
+.order-btn:active {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(0.9);
+}
+
 /* 内容区域 */
 .content-box {
   padding: 20rpx;

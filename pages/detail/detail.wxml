@@ -4,9 +4,47 @@
     <swiper-item wx:for="{{plant.images}}" wx:key="*this">
       <view class="image-container">
         <image src="{{item}}" class="swiper-image" mode="aspectFill" bindtap="previewImage" data-src="{{item}}"></image>
+        <!-- V0.3 图片信息显示 -->
+        <view class="image-info-overlay">
+          <view class="image-date" wx:if="{{plant.imageInfos && plant.imageInfos[index]}}">
+            📅 {{plant.imageInfos[index].date}}
+          </view>
+          <!-- 编辑备忘模式 -->
+          <view wx:if="{{editingMemoIndex === index}}" class="memo-edit-container">
+            <textarea class="memo-edit-input" 
+                      value="{{editingMemo}}" 
+                      bindinput="onMemoInput" 
+                      placeholder="添加备忘信息..."
+                      maxlength="100"
+                      auto-height="true"></textarea>
+            <view class="memo-edit-actions">
+              <text class="memo-btn save" bindtap="saveImageMemo">保存</text>
+              <text class="memo-btn cancel" bindtap="cancelMemoEdit">取消</text>
+            </view>
+          </view>
+          <!-- 显示备忘模式 -->
+          <view wx:elif="{{plant.imageInfos && plant.imageInfos[index] && plant.imageInfos[index].memo}}" 
+                class="image-memo" 
+                bindtap="editImageMemo" 
+                data-index="{{index}}">
+            📝 {{plant.imageInfos[index].memo}}
+          </view>
+          <!-- 添加备忘按钮 -->
+          <view wx:elif="{{plant.imageInfos && plant.imageInfos[index]}}" 
+                class="add-memo-btn" 
+                bindtap="editImageMemo" 
+                data-index="{{index}}">
+            📝 添加备忘
+          </view>
+        </view>
         <view class="image-actions" wx:if="{{plant.images.length > 1}}">
           <text class="action-btn" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
           <text class="action-btn delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
+        </view>
+        <!-- V0.3 图片顺序调整按钮 -->
+        <view class="image-order-actions" wx:if="{{plant.images.length > 1}}">
+          <text class="order-btn" wx:if="{{index > 0}}" bindtap="moveImageUp" data-index="{{index}}">⬆️</text>
+          <text class="order-btn" wx:if="{{index < plant.images.length - 1}}" bindtap="moveImageDown" data-index="{{index}}">⬇️</text>
         </view>
         <view class="cover-badge" wx:if="{{index === 0}}">题图</view>
       </view>

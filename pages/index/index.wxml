@@ -18,7 +18,23 @@
       <view class="status-text">{{statusText}}</view>
     </view>
     
-    <view class="plant-card" wx:for="{{plantList}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+    <!-- 批量模式提示（固定在顶部） -->
+    <view wx:if="{{batchMode}}" class="batch-mode-tip">
+      <text class="batch-tip-text">批量模式：点击植物进行选择</text>
+      <text class="batch-tip-count">已选择 {{selectedPlants.length}} 株</text>
+    </view>
+    <!-- 占位符，避免列表被顶部提示遮挡 -->
+    <view wx:if="{{batchMode}}" class="batch-mode-tip-spacer"></view>
+    
+    <view class="plant-card {{batchMode ? 'batch-mode' : ''}} {{item.selected ? 'selected' : ''}}" 
+          wx:for="{{plantList}}" wx:key="id" 
+          data-id="{{item.id}}" 
+          bindtap="{{batchMode ? 'togglePlantSelection' : 'goToDetail'}}">
+      <!-- 批量选择框 -->
+      <view wx:if="{{batchMode}}" class="batch-checkbox {{item.selected ? 'checked' : ''}}">
+        <text class="checkbox-icon">{{item.selected ? '✓' : ''}}</text>
+      </view>
+      
       <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
       <view class="card-content">
         <view class="card-title">{{item.aiResult.name || '未知植物'}}</view>
@@ -41,12 +57,64 @@
   </view>
 
   <!-- 添加按钮 -->
-  <view class="add-button" bindtap="goToAdd">
+  <view class="add-button" bindtap="goToAdd" wx:if="{{!batchMode}}">
     <text class="add-icon">+</text>
   </view>
 
   <!-- 设置按钮 -->
-  <view class="settings-button" bindtap="goToSettings">
+  <view class="settings-button" bindtap="goToSettings" wx:if="{{!batchMode}}">
     <text class="settings-icon">⚙️</text>
+  </view>
+  
+  <!-- 批量模式按钮 -->
+  <view class="batch-mode-button" bindtap="toggleBatchMode" wx:if="{{!batchMode}}">
+    <text class="batch-icon">📋</text>
+  </view>
+  
+  <!-- 批量操作按钮组 -->
+  <view wx:if="{{batchMode}}" class="batch-actions">
+    <view class="batch-action-btn" bindtap="batchWatering">
+      <text class="batch-action-icon">💧</text>
+      <text class="batch-action-text">批量浇水</text>
+    </view>
+    <view class="batch-action-btn" bindtap="batchFertilizing">
+      <text class="batch-action-icon">🌱</text>
+      <text class="batch-action-text">批量施肥</text>
+    </view>
+    <view class="batch-action-btn cancel" bindtap="exitBatchMode">
+      <text class="batch-action-icon">✕</text>
+      <text class="batch-action-text">退出</text>
+    </view>
+  </view>
+  
+  <!-- 批量历史记录按钮 -->
+  <view class="batch-history-button" bindtap="viewBatchHistory" wx:if="{{!batchMode}}">
+    <text class="batch-history-icon">📋</text>
+  </view>
+  
+  <!-- 批量操作历史弹窗 -->
+  <view class="batch-history-modal" wx:if="{{showBatchHistoryModal}}" bindtap="closeBatchHistoryModal">
+    <view class="batch-history-content" catchtap="stopPropagation">
+      <view class="batch-history-header">
+        <text class="batch-history-title">批量操作记录</text>
+        <text class="close-btn" bindtap="closeBatchHistoryModal">✕</text>
+      </view>
+      <scroll-view class="batch-history-list" scroll-y="true">
+        <view class="batch-history-item" wx:for="{{batchHistoryData}}" wx:key="timestamp">
+          <view class="batch-history-info">
+            <view class="batch-history-type">{{item.typeText}}</view>
+            <view class="batch-history-time">{{item.date}} {{item.time}}</view>
+          </view>
+          <view class="batch-history-plants">
+            <text class="batch-history-count">{{item.count}}株植物：</text>
+            <text class="batch-history-plant-list">{{item.plantList}}</text>
+          </view>
+        </view>
+        <view class="batch-history-empty" wx:if="{{batchHistoryData.length === 0}}">
+          <text class="empty-icon">📋</text>
+          <text class="empty-text">暂无批量操作记录</text>
+        </view>
+      </scroll-view>
+    </view>
   </view>
 </view>

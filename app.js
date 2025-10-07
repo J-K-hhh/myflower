@@ -5,6 +5,13 @@ App({
     wx.setStorageSync('logs', logs)
     wx.login({ success: res => {} })
     
+    // 初始化云能力（用于持久化图片）
+    try {
+      if (wx.cloud && typeof wx.cloud.init === 'function') {
+        wx.cloud.init({ env: 'cloud1-3g0zhoisfb048afb', traceUser: false });
+      }
+    } catch (e) {}
+
     // 设置随机emoji标题
     this.setRandomTitle()
   },

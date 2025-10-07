@@ -337,3 +337,300 @@
   font-size: 36rpx;
   filter: drop-shadow(0 1rpx 2rpx rgba(0, 0, 0, 0.1));
 }
+
+/* V0.3 批量操作样式 */
+.batch-mode-tip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  width: calc(100% - 10rpx);
+  background: rgba(255, 193, 7, 0.96);
+  border-radius: 15rpx;
+  padding: 20rpx;
+  margin-bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 193, 7, 0.3);
+}
+
+.batch-mode-tip-spacer {
+  height: 20rpx;
+}
+
+.batch-tip-text {
+  font-size: 28rpx;
+  color: #856404;
+  font-weight: 500;
+}
+
+.batch-tip-count {
+  font-size: 26rpx;
+  color: #856404;
+  font-weight: 600;
+}
+
+.plant-card.batch-mode {
+  position: relative;
+  border: 2rpx solid transparent;
+  transition: all 0.3s ease;
+}
+
+.plant-card.selected {
+  border-color: #00d4aa;
+  background: rgba(0, 212, 170, 0.05);
+  transform: scale(0.98);
+  box-shadow: 0 12rpx 40rpx rgba(0, 212, 170, 0.25);
+}
+
+.batch-checkbox {
+  position: absolute;
+  top: 15rpx;
+  left: 15rpx;
+  width: 50rpx;
+  height: 50rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid rgba(0, 0, 0, 0.1);
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+.batch-checkbox.checked {
+  background: #00d4aa;
+  border-color: #00d4aa;
+  transform: scale(1.1);
+}
+
+.checkbox-icon {
+  font-size: 28rpx;
+  color: #ffffff;
+  font-weight: 800;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+}
+
+.batch-mode-button {
+  position: fixed;
+  bottom: 50rpx;
+  left: 50rpx;
+  width: 100rpx;
+  height: 100rpx;
+  background: linear-gradient(135deg, #6c5ce7 0%, #5f3dc4 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 6rpx 24rpx rgba(108, 92, 231, 0.4),
+    0 0 0 3rpx rgba(255, 255, 255, 0.8),
+    0 0 0 6rpx rgba(108, 92, 231, 0.2);
+  z-index: 10;
+  transition: all 0.3s ease;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+}
+
+.batch-mode-button:active {
+  transform: scale(0.9);
+}
+
+.batch-icon {
+  color: white;
+  font-size: 40rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+}
+
+.batch-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20rpx);
+  border-top: 1rpx solid rgba(0, 0, 0, 0.1);
+  padding: 30rpx 40rpx;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 10;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
+}
+
+.batch-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: rgba(0, 212, 170, 0.1);
+  border: 2rpx solid rgba(0, 212, 170, 0.2);
+  min-width: 120rpx;
+  transition: all 0.3s ease;
+}
+
+.batch-action-btn:active {
+  transform: scale(0.95);
+  background: rgba(0, 212, 170, 0.2);
+}
+
+.batch-action-btn.cancel {
+  background: rgba(231, 76, 60, 0.1);
+  border-color: rgba(231, 76, 60, 0.2);
+}
+
+.batch-action-btn.cancel:active {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+.batch-action-icon {
+  font-size: 36rpx;
+  margin-bottom: 8rpx;
+}
+
+.batch-action-text {
+  font-size: 24rpx;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+/* V0.3 批量历史记录样式 */
+.batch-history-button {
+  position: fixed;
+  bottom: 50rpx;
+  left: 170rpx;
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 4rpx 16rpx rgba(255, 107, 107, 0.4),
+    0 0 0 2rpx rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  transition: all 0.3s ease;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+}
+
+.batch-history-button:active {
+  transform: scale(0.9);
+}
+
+.batch-history-icon {
+  color: white;
+  font-size: 32rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+}
+
+.batch-history-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+
+.batch-history-content {
+  background: white;
+  border-radius: 20rpx;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.2);
+}
+
+.batch-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+  background: #f8f9fa;
+}
+
+.batch-history-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.close-btn {
+  font-size: 32rpx;
+  color: #999;
+  padding: 10rpx;
+}
+
+.batch-history-list {
+  max-height: 60vh;
+  padding: 20rpx;
+}
+
+.batch-history-item {
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  background: white;
+  border-radius: 10rpx;
+  margin-bottom: 15rpx;
+}
+
+.batch-history-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.batch-history-type {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #00d4aa;
+}
+
+.batch-history-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.batch-history-plants {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.4;
+}
+
+.batch-history-count {
+  font-weight: 500;
+  color: #333;
+}
+
+.batch-history-plant-list {
+  color: #666;
+}
+
+.batch-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 20rpx;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 60rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+}

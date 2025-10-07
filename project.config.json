@@ -6,7 +6,7 @@
   },
   "setting": {
     "urlCheck": false,
-    "es6": false,
+    "es6": true,
     "postcss": true,
     "minified": false,
     "newFeature": false,
@@ -24,7 +24,7 @@
     },
     "lazyCodeLoading": "requiredComponents",
     "useStaticServer": true,
-    "enhance": false,
+    "enhance": true,
     "showES6CompileOption": false,
     "minifyWXSS": false,
     "minifyWXML": false
