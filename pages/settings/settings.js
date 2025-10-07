@@ -103,6 +103,13 @@ Page({
     
     if (hasChanges) {
       wx.setStorageSync('plantList', updatedList);
+      // Persist to cloud database (best-effort)
+      try {
+        const cloudUtils = require('../../utils/cloud_utils.js');
+        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+          cloudUtils.savePlantList(updatedList);
+        }
+      } catch (e) {}
       wx.showToast({
         title: `已清理超出限制的旧图片`,
         icon: 'success',
@@ -146,6 +153,13 @@ Page({
     
     if (hasChanges) {
       wx.setStorageSync('plantList', updatedList);
+      // Persist to cloud database (best-effort)
+      try {
+        const cloudUtils = require('../../utils/cloud_utils.js');
+        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+          cloudUtils.savePlantList(updatedList);
+        }
+      } catch (e) {}
       wx.showToast({
         title: `已清理超出限制的旧记录`,
         icon: 'success',

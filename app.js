@@ -3,14 +3,31 @@ App({
     const logs = wx.getStorageSync('logs') || []
     logs.unshift(Date.now())
     wx.setStorageSync('logs', logs)
-    wx.login({ success: res => {} })
-    
-    // 初始化云能力（用于持久化图片）
-    try {
-      if (wx.cloud && typeof wx.cloud.init === 'function') {
-        wx.cloud.init({ env: 'cloud1-3g0zhoisfb048afb', traceUser: false });
+    if (!wx.cloud) {
+      console.error('请使用 2.2.3+ 的基础库以使用云能力');
+      return;
+    }
+
+    // 2) 正确初始化云环境 —— 用动态环境，和 DevTools 当前选择的 env 保持一致
+    wx.cloud.init({
+      env: wx.cloud.DYNAMIC_CURRENT_ENV, // ✅ 关键：指定动态环境
+      traceUser: true
+    });
+    console.log('[app] wx.cloud.init done (DYNAMIC_CURRENT_ENV)');
+
+    // 3) 全局就绪：先拿 openid，页面里 await app.ready 再去查云端
+    this.ready = (async () => {
+      try {
+        const { result } = await wx.cloud.callFunction({ name: 'login' });
+        this.openid = result.openid;
+        console.log('[app] openid:', this.openid);
+        return this.openid;
+      } catch (e) {
+        console.error('[app] login failed:', e);
+        // 这里返回 null，页面可以据此做降级（仅本地缓存，不查云端）
+        return null;
       }
-    } catch (e) {}
+    })();
 
     // 设置随机emoji标题
     this.setRandomTitle()

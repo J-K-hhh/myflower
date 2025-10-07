@@ -180,15 +180,24 @@ Page({
         const tempFilePath = res.tempFiles[0].tempFilePath;
         // Prefer uploading to cloud; fallback to saveFile
         if (cloudUtils.isCloudAvailable()) {
+          console.log('[detail] cloud available, uploading image');
           cloudUtils.uploadImage(tempFilePath)
             .then(fileID => {
               // We store the cloud fileID and use it in imageInfos
+              console.log('[detail] upload success fileID:', fileID);
               if (this.data.selectedModel === 'qwen-vl') {
                 this.analyzePlantHealth(tempFilePath); // analysis needs local path
               }
               this.addPhotoToPlant(fileID);
             })
-            .catch(() => {
+            .catch((err) => {
+              console.warn('[detail] upload failed, fallback to saveFile:', err);
+              wx.showModal({
+                title: '上传到云端失败',
+                content: '已改为仅保存到本地，图片不会出现在云存储。',
+                showCancel: false,
+                confirmText: '知道了'
+              });
               wx.saveFile({
                 tempFilePath: tempFilePath,
                 success: (saveRes) => {
@@ -199,7 +208,8 @@ Page({
                     this.addPhotoToPlant(savedPath);
                   }
                 },
-                fail: () => {
+                fail: (sfErr) => {
+                  console.warn('[detail] saveFile failed, fallback to temp path:', sfErr);
                   if (this.data.selectedModel === 'qwen-vl') {
                     this.analyzePlantHealth(tempFilePath);
                   } else {
@@ -209,6 +219,13 @@ Page({
               });
             });
         } else {
+          console.log('[detail] cloud unavailable, using saveFile fallback');
+          wx.showModal({
+            title: '云能力不可用',
+            content: '当前无法上传到云存储，图片将仅保存在本地，云端不可见。',
+            showCancel: false,
+            confirmText: '知道了'
+          });
           wx.saveFile({
             tempFilePath: tempFilePath,
             success: (saveRes) => {
@@ -219,7 +236,8 @@ Page({
                 this.addPhotoToPlant(savedPath);
               }
             },
-            fail: () => {
+            fail: (err) => {
+              console.warn('[detail] saveFile failed, fallback to temp path:', err);
               if (this.data.selectedModel === 'qwen-vl') {
                 this.analyzePlantHealth(tempFilePath);
               } else {
@@ -230,6 +248,7 @@ Page({
         }
       },
       fail: (err) => {
+        console.warn('[detail] chooseMedia failed:', err);
         wx.showToast({ title: '拍照失败', icon: 'none' });
       }
     });
@@ -268,6 +287,7 @@ Page({
       });
   },
   addPhotoToPlant: function(filePath, healthAnalysis = null) {
+    console.log('[detail] addPhotoToPlant path:', filePath);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -315,7 +335,11 @@ Page({
     wx.setStorageSync('plantList', updatedList);
     // Persist to cloud database (best-effort)
     if (cloudUtils && cloudUtils.isCloudAvailable) {
-      try { cloudUtils.savePlantList(updatedList); } catch (e) {}
+      try {
+        cloudUtils.savePlantList(updatedList).then((ok) => {
+          console.log('[detail] cloud save after add photo:', ok);
+        });
+      } catch (e) {}
     }
     this.setData({
       'plant.images': updatedList.find(p => p.id == this.data.plantId).images,
@@ -360,6 +384,7 @@ Page({
     });
   },
   updatePlantImages: function (newImages, newImageInfos = null) {
+    console.log('[detail] updatePlantImages count:', newImages.length);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -371,6 +396,14 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+      try {
+        cloudUtils.savePlantList(updatedList).then((ok) => {
+          console.log('[detail] cloud save after update images:', ok);
+        });
+      } catch (e) {}
+    }
     const updateData = { 'plant.images': newImages };
     if (newImageInfos) {
       updateData['plant.imageInfos'] = newImageInfos;
@@ -378,6 +411,7 @@ Page({
     this.setData(updateData);
   },
   updatePlantData: function (field, value, successMsg) {
+    console.log('[detail] updatePlantData', field, value);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -386,12 +420,21 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+      try {
+        cloudUtils.savePlantList(updatedList).then((ok) => {
+          console.log('[detail] cloud save after update field:', field, ok);
+        });
+      } catch (e) {}
+    }
     const updateData = {};
     updateData[`plant.${field}`] = value;
     this.setData(updateData);
     wx.showToast({ title: successMsg, icon: 'success' });
   },
   updatePlantDataWithHistory: function (field, value, historyField, successMsg) {
+    console.log('[detail] updatePlantDataWithHistory', field, value, historyField);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -411,6 +454,14 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+      try {
+        cloudUtils.savePlantList(updatedList).then((ok) => {
+          console.log('[detail] cloud save after update history:', ok);
+        });
+      } catch (e) {}
+    }
     const updateData = {};
     updateData[`plant.${field}`] = value;
     updateData[`plant.${historyField}`] = updatedList.find(p => p.id == this.data.plantId)[historyField];

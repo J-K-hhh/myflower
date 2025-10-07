@@ -20,7 +20,9 @@ Page({
     app.setRandomTitle();
   },
   loadPlantData: function () {
+    console.log('[index] loadPlantData start');
     const localList = wx.getStorageSync('plantList') || [];
+    console.log('[index] local plantList size:', localList.length);
     let plantList = (localList).map(p => ({
       ...p,
       id: Number(p.id),
@@ -32,17 +34,27 @@ Page({
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');
         if (cloudUtils && cloudUtils.loadPlantList) {
+          console.log('[index] trying restore from cloud');
           cloudUtils.loadPlantList().then(cloudList => {
+            console.log('[index] cloud restore size:', cloudList.length);
             if (cloudList.length > 0) {
               wx.setStorageSync('plantList', cloudList);
+              wx.showToast({ title: '已从云端恢复数据', icon: 'success' });
               this.loadPlantData();
             } else {
+              wx.showToast({ title: '没有云端数据', icon: 'none' });
               this.finishLoad(plantList);
             }
-          }).catch(() => this.finishLoad(plantList));
+          }).catch((err) => {
+            console.warn('[index] cloud restore failed:', err);
+            wx.showToast({ title: '云端恢复失败', icon: 'none' });
+            this.finishLoad(plantList);
+          });
           return;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[index] restore try-catch error:', e);
+      }
       this.finishLoad(plantList);
       return;
     }
@@ -55,6 +67,7 @@ Page({
     const firstImages = plantList.map(p => p.images && p.images[0] ? p.images[0] : null);
     const cloudIds = firstImages.filter(path => path && path.indexOf('cloud://') === 0);
     if (cloudIds.length > 0 && wx.cloud && wx.cloud.getTempFileURL) {
+      console.log('[index] resolving cloud image URLs, count:', cloudIds.length);
       wx.cloud.getTempFileURL({
         fileList: cloudIds,
         success: (res) => {
@@ -67,7 +80,8 @@ Page({
           });
           this.finishLoad(plantList);
         },
-        fail: () => {
+        fail: (err) => {
+          console.warn('[index] getTempFileURL failed:', err);
           this.finishLoad(plantList);
         }
       });
@@ -204,6 +218,13 @@ Page({
     this.recordBatchOperation('watering', selectedPlantNames, timestamp);
     
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    try {
+      const cloudUtils = require('../../utils/cloud_utils.js');
+      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+        cloudUtils.savePlantList(updatedList);
+      }
+    } catch (e) {}
     
     setTimeout(() => {
       wx.hideLoading();
@@ -244,6 +265,13 @@ Page({
     this.recordBatchOperation('fertilizing', selectedPlantNames, timestamp);
     
     wx.setStorageSync('plantList', updatedList);
+    // Persist to cloud database (best-effort)
+    try {
+      const cloudUtils = require('../../utils/cloud_utils.js');
+      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+        cloudUtils.savePlantList(updatedList);
+      }
+    } catch (e) {}
     
     setTimeout(() => {
       wx.hideLoading();

@@ -102,9 +102,11 @@ Page({
         const tempFilePath = res.tempFiles[0].tempFilePath;
         // Upload to cloud when available; fallback to local saveFile
         if (cloudUtils.isCloudAvailable()) {
+          console.log('[add] cloud available, uploading image');
           cloudUtils.uploadImage(tempFilePath)
             .then(fileID => {
               // Use cloud fileID as image reference
+              console.log('[add] upload success fileID:', fileID);
               this.setData({
                 tempImagePath: fileID,
                 aiResult: {}
@@ -112,7 +114,14 @@ Page({
               // For recognition, still need a real file path; use tempFilePath
               this.recognizeImage(tempFilePath);
             })
-            .catch(() => {
+            .catch((err) => {
+              console.warn('[add] upload failed, fallback to saveFile:', err);
+              wx.showModal({
+                title: '上传到云端失败',
+                content: '已改为仅保存到本地，图片不会出现在云存储。',
+                showCancel: false,
+                confirmText: '知道了'
+              });
               wx.saveFile({
                 tempFilePath: tempFilePath,
                 success: (saveRes) => {
@@ -120,13 +129,21 @@ Page({
                   this.setData({ tempImagePath: savedPath, aiResult: {} });
                   this.recognizeImage(savedPath);
                 },
-                fail: () => {
+                fail: (sfErr) => {
+                  console.warn('[add] saveFile failed, fallback to temp path:', sfErr);
                   this.setData({ tempImagePath: tempFilePath, aiResult: {} });
                   this.recognizeImage(tempFilePath);
                 }
               });
             });
         } else {
+          console.log('[add] cloud unavailable, using saveFile fallback');
+          wx.showModal({
+            title: '云能力不可用',
+            content: '当前无法上传到云存储，图片将仅保存在本地，云端不可见。',
+            showCancel: false,
+            confirmText: '知道了'
+          });
           wx.saveFile({
             tempFilePath: tempFilePath,
             success: (saveRes) => {
@@ -134,7 +151,8 @@ Page({
               this.setData({ tempImagePath: savedPath, aiResult: {} });
               this.recognizeImage(savedPath);
             },
-            fail: () => {
+            fail: (err) => {
+              console.warn('[add] saveFile failed, fallback to temp path:', err);
               this.setData({ tempImagePath: tempFilePath, aiResult: {} });
               this.recognizeImage(tempFilePath);
             }
@@ -275,6 +293,7 @@ Page({
     });
   },
   formSubmit: function () {
+    console.log('[add] formSubmit start');
     if (!this.data.tempImagePath) {
       wx.showToast({ title: '请先选择一张图片', icon: 'none' });
       return;
@@ -304,17 +323,34 @@ Page({
     };
     plantList.unshift(newPlant);
     wx.setStorageSync('plantList', plantList);
+    console.log('[add] local saved, total count:', plantList.length);
     // Persist to cloud database (best-effort)
-    if (cloudUtils.isCloudAvailable()) {
-      cloudUtils.savePlantList(plantList);
-    }
-    wx.showToast({
-      title: '🌱 种下成功！',
-      icon: 'success',
-      duration: 1200
+    try {
+      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+        cloudUtils.savePlantList(plantList).then((ok) => {
+          console.log('[add] cloud save returned:', ok);
+        });
+      }
+    } catch (e) {}
+    // Ensure cloud save is flushed before leaving (best-effort, with short timeout)
+    const ensurePersist = new Promise((resolve) => {
+      try {
+        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+          cloudUtils.savePlantList(plantList).then(() => resolve()).catch(() => resolve());
+        } else { resolve(); }
+      } catch (e) { resolve(); }
+      // Safety timeout 1s
+      setTimeout(() => resolve(), 1000);
     });
-    setTimeout(() => {
-      wx.navigateBack();
-    }, 1200);
+    ensurePersist.then(() => {
+      wx.showToast({
+        title: '🌱 种下成功！',
+        icon: 'success',
+        duration: 800
+      });
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 800);
+    });
   }
 });
