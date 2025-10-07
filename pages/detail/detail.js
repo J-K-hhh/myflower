@@ -85,6 +85,30 @@ Page({
     const plant = plantList.find(p => p.id == plantId);
     if (plant) {
       plant.createDate = new Date(plant.createTime).toLocaleDateString();
+      // 回填/校正 imageInfos 与 images 对齐
+      const images = Array.isArray(plant.images) ? plant.images : [];
+      if (!Array.isArray(plant.imageInfos)) {
+        plant.imageInfos = [];
+      }
+      // 如果数量不一致或缺少 path，则重建
+      if (plant.imageInfos.length !== images.length || plant.imageInfos.some(info => !info || !info.path)) {
+        const rebuilt = images.map((imgPath) => ({
+          path: imgPath,
+          timestamp: typeof plant.createTime === 'number' ? plant.createTime : Date.now(),
+          date: new Date(typeof plant.createTime === 'number' ? plant.createTime : Date.now()).toISOString().split('T')[0],
+          memo: ''
+        }));
+        plant.imageInfos = rebuilt;
+        // 写回本地并尝试云端同步（吞错）
+        const newList = plantList.map(p => p.id == plantId ? plant : p);
+        wx.setStorageSync('plantList', newList);
+        try {
+          const cloudUtils = require('../../utils/cloud_utils.js');
+          if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+            cloudUtils.savePlantList(newList);
+          }
+        } catch (e) {}
+      }
       this.setData({ plant: plant });
     } else {
       wx.showToast({
@@ -298,8 +322,15 @@ Page({
         
         // 如果达到照片数量限制，删除最旧的照片
         if (plant.images && plant.images.length >= this.data.maxPhotos) {
-          plant.images.pop();
+          const removedImage = plant.images.pop();
           plant.imageInfos.pop();
+          // 清理被移除的旧云端文件
+          try {
+            const cloudUtils = require('../../utils/cloud_utils.js');
+            if (removedImage && removedImage.indexOf('cloud://') === 0 && cloudUtils.deleteCloudFiles) {
+              cloudUtils.deleteCloudFiles([removedImage]);
+            }
+          } catch (e) {}
         }
         
         // 添加新图片和图片信息
@@ -375,10 +406,18 @@ Page({
       content: '确定要删除这张照片吗？',
       success: (res) => {
         if (res.confirm) {
+          const removedPath = images[index];
           const newImages = images.filter((_, i) => i !== index);
           const newImageInfos = (this.data.plant.imageInfos || []).filter((_, i) => i !== index);
           this.updatePlantImages(newImages, newImageInfos);
           wx.showToast({ title: '照片已删除', icon: 'success' });
+          // 清理云端文件（仅当是 cloud:// 开头）
+          try {
+            const cloudUtils = require('../../utils/cloud_utils.js');
+            if (removedPath && removedPath.indexOf('cloud://') === 0 && cloudUtils.deleteCloudFiles) {
+              cloudUtils.deleteCloudFiles([removedPath]);
+            }
+          } catch (e) {}
         }
       }
     });
@@ -628,8 +667,24 @@ Page({
       success: (res) => {
         if (res.confirm) {
           const plantList = wx.getStorageSync('plantList') || [];
+          const target = plantList.find(p => p.id == this.data.plantId) || {};
+          const fileIds = (target.images || []).filter(p => typeof p === 'string' && p.indexOf('cloud://') === 0);
           const newList = plantList.filter(p => p.id != this.data.plantId);
           wx.setStorageSync('plantList', newList);
+          // 先尝试云端文件删除（吞错）
+          try {
+            const cloudUtils = require('../../utils/cloud_utils.js');
+            if (fileIds.length > 0 && cloudUtils.deleteCloudFiles) {
+              cloudUtils.deleteCloudFiles(fileIds);
+            }
+          } catch (e) {}
+          // 同步数据库（吞错）
+          try {
+            const cloudUtils = require('../../utils/cloud_utils.js');
+            if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+              cloudUtils.savePlantList(newList);
+            }
+          } catch (e) {}
           wx.showToast({ title: '删除成功', icon: 'success', duration: 1500 });
           setTimeout(() => { wx.navigateBack(); }, 1500);
         }

@@ -309,6 +309,12 @@ Page({
       createTime: currentTime.getTime(),
       createDate: currentTime.toLocaleDateString(),
       images: [this.data.tempImagePath],
+      imageInfos: [{
+        path: this.data.tempImagePath,
+        timestamp: currentTime.getTime(),
+        date: new Date(currentTime.getTime()).toISOString().split('T')[0],
+        memo: ''
+      }],
       lastWateringDate: this.data.wateringDate,
       lastFertilizingDate: this.data.fertilizingDate,
       aiResult: this.data.aiResult,

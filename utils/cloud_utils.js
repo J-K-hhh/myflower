@@ -180,4 +180,32 @@ function loadPlantList() {
 module.exports.savePlantList = savePlantList;
 module.exports.loadPlantList = loadPlantList;
 
+// Delete cloud storage files by fileIDs; ignores non-cloud paths
+function deleteCloudFiles(fileIdList) {
+  return new Promise((resolve) => {
+    if (!initCloud() || !wx.cloud.deleteFile) {
+      resolve({ deleted: 0, failed: [] });
+      return;
+    }
+    const cloudIds = (fileIdList || []).filter(id => typeof id === 'string' && id.indexOf('cloud://') === 0);
+    if (cloudIds.length === 0) {
+      resolve({ deleted: 0, failed: [] });
+      return;
+    }
+    wx.cloud.deleteFile({
+      fileList: cloudIds,
+      success: (res) => {
+        // res.fileList: [{ fileID, status, errMsg }]
+        const failed = (res.fileList || []).filter(i => i.status !== 0);
+        resolve({ deleted: cloudIds.length - failed.length, failed: failed });
+      },
+      fail: () => {
+        resolve({ deleted: 0, failed: cloudIds.map(id => ({ fileID: id })) });
+      }
+    });
+  });
+}
+
+module.exports.deleteCloudFiles = deleteCloudFiles;
+
 
