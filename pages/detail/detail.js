@@ -23,14 +23,7 @@ Page({
     editingMemo: ''
   },
   onLoad: function (options) {
-    try { console.log('[detail] onLoad options =', options); } catch (e) {}
-    try {
-      const enter = wx.getEnterOptionsSync && wx.getEnterOptionsSync();
-      if (enter) {
-        console.log('[detail] getEnterOptionsSync =', enter);
-      }
-    } catch (e) {}
-    // 支持两种入口：本地 id 或 分享 shareId
+    // 支持两种入口：本地 id 或 分享 owner+pid
     const { id, owner, pid } = options || {};
     this.loadSettings();
     this.checkLocationPermission();
@@ -55,11 +48,6 @@ Page({
       // 通过 owner+pid 动态读取分享数据
       this.setData({ readonlyShareView: true });
       try {
-        wx.showModal({
-          title: '调试参数',
-          content: `owner=${owner}\npid=${pid}`,
-          showCancel: false
-        });
       } catch (e) {}
       this.loadSharedPlantByOwner(owner, pid);
       return;
@@ -119,7 +107,6 @@ Page({
         });
       },
       fail: (err) => {
-        console.log('获取位置失败:', err);
       }
     });
   },
@@ -156,7 +143,10 @@ Page({
       // 确保本地视图也可显示 cloud:// 图片（转换为临时URL，但不弹窗）
       this.resolveCloudImagesForReadonly(plant).then((resolved) => {
         this.setData({ plant: resolved });
-      }).catch(() => {});
+        this.updatePageTitle(resolved, false);
+      }).catch(() => {
+        this.updatePageTitle(plant, false);
+      });
     } else {
       wx.showToast({
         title: '找不到该植物信息',
@@ -164,6 +154,24 @@ Page({
         complete: () => wx.navigateBack()
       });
     }
+  },
+
+  // 更新页面标题
+  updatePageTitle: function(plant, isShared) {
+    if (!plant || !plant.aiResult) return;
+    
+    const plantName = plant.aiResult.name || '未知植物';
+    let title = plantName;
+    
+    if (isShared) {
+      // 分享模式：显示"来自XX的植物名"
+      // 这里简化处理，实际项目中可能需要获取分享者姓名
+      title = `来自朋友的${plantName}`;
+    }
+    
+    wx.setNavigationBarTitle({
+      title: title
+    });
   },
 
   // (snapshot loading removed)
@@ -179,19 +187,8 @@ Page({
       wx.showLoading({ title: '加载分享...' });
       cloudUtils.loadSharedPlantByOwner(ownerOpenId, plantId).then((sharedPlant) => {
         wx.hideLoading();
-        // 支持返回 { plant, debug }
         const plant = sharedPlant && sharedPlant.plant ? sharedPlant.plant : sharedPlant;
-        const debug = sharedPlant && sharedPlant.debug ? sharedPlant.debug : null;
         if (!plant) {
-          if (debug) {
-            try {
-              wx.showModal({
-                title: '调试信息',
-                content: `加载失败\nmethod=${debug.method || ''}\nlistSize=${debug.listSize || 0}\nowner=${debug.ownerOpenId || ''}\npid=${debug.plantId || ''}\nsampleIds=${(debug.sampleIds||[]).join(',')}`,
-                showCancel: false
-              });
-            } catch (e) {}
-          }
           wx.showToast({ title: '分享已失效或被删除', icon: 'none' });
           setTimeout(() => wx.navigateBack(), 1500);
           return;
@@ -202,18 +199,11 @@ Page({
         // 将 cloud:// 图片转换为临时URL，确保接收方可访问
         this.resolveCloudImagesForReadonly(plant).then((resolvedPlant) => {
           this.setData({ plant: resolvedPlant });
+          this.updatePageTitle(resolvedPlant, true);
         }).catch(() => {
           this.setData({ plant: plant });
+          this.updatePageTitle(plant, true);
         });
-        if (debug) {
-          try {
-            wx.showModal({
-              title: '调试信息',
-              content: `加载成功\nmethod=${debug.method || ''}\nlistSize=${debug.listSize || 0}`,
-              showCancel: false
-            });
-          } catch (e) {}
-        }
       }).catch(() => {
         wx.hideLoading();
         wx.showToast({ title: '加载失败', icon: 'none' });
@@ -344,11 +334,9 @@ Page({
         const tempFilePath = res.tempFiles[0].tempFilePath;
         // Prefer uploading to cloud; fallback to saveFile
         if (cloudUtils.isCloudAvailable()) {
-          console.log('[detail] cloud available, uploading image');
           cloudUtils.uploadImage(tempFilePath)
             .then(fileID => {
               // We store the cloud fileID and use it in imageInfos
-              console.log('[detail] upload success fileID:', fileID);
               if (this.data.selectedModel === 'qwen-vl') {
                 this.analyzePlantHealth(tempFilePath); // analysis needs local path
               }
@@ -383,7 +371,6 @@ Page({
               });
             });
         } else {
-          console.log('[detail] cloud unavailable, using saveFile fallback');
           wx.showModal({
             title: '云能力不可用',
             content: '当前无法上传到云存储，图片将仅保存在本地，云端不可见。',
@@ -451,7 +438,6 @@ Page({
       });
   },
   addPhotoToPlant: function(filePath, healthAnalysis = null) {
-    console.log('[detail] addPhotoToPlant path:', filePath);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -510,7 +496,6 @@ Page({
     if (cloudUtils && cloudUtils.isCloudAvailable) {
       try {
         cloudUtils.savePlantList(updatedList).then((ok) => {
-          console.log('[detail] cloud save after add photo:', ok);
         });
       } catch (e) {}
     }
@@ -565,7 +550,6 @@ Page({
     });
   },
   updatePlantImages: function (newImages, newImageInfos = null) {
-    console.log('[detail] updatePlantImages count:', newImages.length);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -583,7 +567,6 @@ Page({
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
         cloudUtils.savePlantList(updatedList).then((ok) => {
-          console.log('[detail] cloud save after update images:', ok);
         });
       } catch (e) {}
     }
@@ -594,7 +577,6 @@ Page({
     this.setData(updateData);
   },
   updatePlantData: function (field, value, successMsg) {
-    console.log('[detail] updatePlantData', field, value);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -609,7 +591,6 @@ Page({
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
         cloudUtils.savePlantList(updatedList).then((ok) => {
-          console.log('[detail] cloud save after update field:', field, ok);
         });
       } catch (e) {}
     }
@@ -619,7 +600,6 @@ Page({
     wx.showToast({ title: successMsg, icon: 'success' });
   },
   updatePlantDataWithHistory: function (field, value, historyField, successMsg) {
-    console.log('[detail] updatePlantDataWithHistory', field, value, historyField);
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -645,7 +625,6 @@ Page({
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
         cloudUtils.savePlantList(updatedList).then((ok) => {
-          console.log('[detail] cloud save after update history:', ok);
         });
       } catch (e) {}
     }
@@ -872,7 +851,6 @@ Page({
     const path = owner && this.data.plantId
       ? `/pages/detail/detail?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
-    try { console.log('[detail] onShareAppMessage path =', path); } catch (e) {}
     return {
       title: `分享我的植物：${plant.aiResult.name || '未知植物'}`,
       path: path,
@@ -887,7 +865,6 @@ Page({
     const query = owner && this.data.plantId
       ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `id=${encodeURIComponent(this.data.plantId)}`;
-    try { console.log('[detail] onShareTimeline query =', query); } catch (e) {}
     return {
       title: `我的植物：${plant.aiResult.name || '未知植物'} - 来自我的阳台花园`,
       query: query,

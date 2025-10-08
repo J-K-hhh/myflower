@@ -4,7 +4,6 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 exports.main = async (event, context) => {
   const db = cloud.database();
   const { ownerOpenId, plantId } = event || {};
-  console.log('[getSharedPlant] params', { ownerOpenId, plantId });
   if (!ownerOpenId || !plantId) {
     return { ok: false, error: 'missing_params' };
   }
@@ -16,14 +15,11 @@ exports.main = async (event, context) => {
     try {
       const doc = await coll.doc(ownerOpenId).get();
       list = (doc && doc.data && Array.isArray(doc.data.list)) ? doc.data.list : [];
-      console.log('[getSharedPlant] doc-read list size:', list.length);
     } catch (e) {
-      console.log('[getSharedPlant] doc-read failed, try where');
       method = 'where';
       const res = await coll.where({ ownerOpenId }).limit(1).get();
       const row = (res && res.data && res.data[0]) || null;
       list = (row && Array.isArray(row.list)) ? row.list : [];
-      console.log('[getSharedPlant] where-read list size:', list.length);
     }
     // 2) 容错匹配 id（字符串/数字）
     const pidStr = String(plantId);
@@ -68,7 +64,6 @@ exports.main = async (event, context) => {
     } catch (e) {
       // ignore
     }
-    console.log('[getSharedPlant] found plant id:', safe.id);
     return { ok: true, plant: safe, debug: { method, listSize: list.length, ownerOpenId, plantId } };
   } catch (e) {
     return { ok: false, error: 'db_error', debug: { ownerOpenId, plantId } };

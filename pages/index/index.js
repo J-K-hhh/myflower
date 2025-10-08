@@ -31,9 +31,7 @@ Page({
     app.setRandomTitle();
   },
   loadPlantData: function () {
-    console.log('[index] loadPlantData start');
     const localList = wx.getStorageSync('plantList') || [];
-    console.log('[index] local plantList size:', localList.length);
     let plantList = (localList).map(p => ({
       ...p,
       id: Number(p.id),
@@ -45,9 +43,7 @@ Page({
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');
         if (cloudUtils && cloudUtils.loadPlantList) {
-          console.log('[index] trying restore from cloud');
           cloudUtils.loadPlantList().then(cloudList => {
-            console.log('[index] cloud restore size:', cloudList.length);
             if (cloudList.length > 0) {
               wx.setStorageSync('plantList', cloudList);
               wx.showToast({ title: '已从云端恢复数据', icon: 'success' });
@@ -78,7 +74,6 @@ Page({
     const firstImages = plantList.map(p => p.images && p.images[0] ? p.images[0] : null);
     const cloudIds = firstImages.filter(path => path && path.indexOf('cloud://') === 0);
     if (cloudIds.length > 0 && wx.cloud && wx.cloud.getTempFileURL) {
-      console.log('[index] resolving cloud image URLs, count:', cloudIds.length);
       wx.cloud.getTempFileURL({
         fileList: cloudIds,
         success: (res) => {
