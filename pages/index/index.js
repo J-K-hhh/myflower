@@ -1,8 +1,6 @@
 Page({
   data: {
     plantList: [],
-    statusIcon: '🌱',
-    statusText: '开始种植',
     batchMode: false,
     selectedPlants: [],
     showBatchActions: false,
@@ -97,19 +95,7 @@ Page({
   },
 
   finishLoad: function(plantList) {
-    const statusInfo = this.getStatusInfo(plantList.length);
-    this.setData({ plantList: plantList, statusIcon: statusInfo.icon, statusText: statusInfo.text });
-  },
-  getStatusInfo: function (count) {
-    if (count === 0) {
-      return { icon: '🌱', text: '开始种植' };
-    } else if (count <= 2) {
-      return { icon: '🌿', text: '小花园' };
-    } else if (count <= 5) {
-      return { icon: '🌳', text: '绿意盎然' };
-    } else {
-      return { icon: '🏡', text: '植物王国' };
-    }
+    this.setData({ plantList: plantList });
   },
   goToAdd: function () {
     wx.navigateTo({

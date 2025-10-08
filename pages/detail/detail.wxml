@@ -9,8 +9,8 @@
           <view class="image-date" wx:if="{{plant.imageInfos && plant.imageInfos[index]}}">
             📅 {{plant.imageInfos[index].date}}
           </view>
-          <!-- 编辑备忘模式 -->
-          <view wx:if="{{editingMemoIndex === index}}" class="memo-edit-container">
+          <!-- 编辑备忘模式 - 仅在非分享模式下显示 -->
+          <view wx:if="{{editingMemoIndex === index && !readonlyShareView}}" class="memo-edit-container">
             <textarea class="memo-edit-input" 
                       value="{{editingMemo}}" 
                       bindinput="onMemoInput" 
@@ -25,24 +25,24 @@
           <!-- 显示备忘模式 -->
           <view wx:elif="{{plant.imageInfos && plant.imageInfos[index] && plant.imageInfos[index].memo}}" 
                 class="image-memo" 
-                bindtap="editImageMemo" 
+                bindtap="{{readonlyShareView ? '' : 'editImageMemo'}}" 
                 data-index="{{index}}">
             📝 {{plant.imageInfos[index].memo}}
           </view>
-          <!-- 添加备忘按钮 -->
-          <view wx:elif="{{plant.imageInfos && plant.imageInfos[index]}}" 
+          <!-- 添加备忘按钮 - 仅在非分享模式下显示 -->
+          <view wx:elif="{{plant.imageInfos && plant.imageInfos[index] && !readonlyShareView}}" 
                 class="add-memo-btn" 
                 bindtap="editImageMemo" 
                 data-index="{{index}}">
             📝 添加备忘
           </view>
         </view>
-        <view class="image-actions" wx:if="{{plant.images.length > 1}}">
+        <view class="image-actions" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
           <text class="action-btn" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
           <text class="action-btn delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
         </view>
-        <!-- V0.3 图片顺序调整按钮 -->
-        <view class="image-order-actions" wx:if="{{plant.images.length > 1}}">
+        <!-- V0.3 图片顺序调整按钮 - 仅在非分享模式下显示 -->
+        <view class="image-order-actions" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
           <text class="order-btn" wx:if="{{index > 0}}" bindtap="moveImageUp" data-index="{{index}}">⬆️</text>
           <text class="order-btn" wx:if="{{index < plant.images.length - 1}}" bindtap="moveImageDown" data-index="{{index}}">⬇️</text>
         </view>
@@ -55,8 +55,8 @@
     <!-- 识别名称 -->
     <view class="plant-title-container">
       <text class="plant-title" wx:if="{{!isEditingName}}">{{plant.aiResult.name || '未知植物'}}</text>
-      <input class="plant-title-edit" wx:if="{{isEditingName}}" value="{{plant.aiResult.name || '未知植物'}}" bindinput="onNameInput" bindblur="saveName" focus="{{isEditingName}}" />
-      <text class="edit-icon" bindtap="toggleNameEdit">{{isEditingName ? '✓' : '✏️'}}</text>
+      <input class="plant-title-edit" wx:if="{{isEditingName && !readonlyShareView}}" value="{{plant.aiResult.name || '未知植物'}}" bindinput="onNameInput" bindblur="saveName" focus="{{isEditingName}}" />
+      <text class="edit-icon" wx:if="{{!readonlyShareView}}" bindtap="toggleNameEdit">{{isEditingName ? '✓' : '✏️'}}</text>
     </view>
     
     <!-- 养护信息 -->
@@ -194,8 +194,8 @@
     </view>
   </view>
 
-  <!-- 底部操作栏 -->
-  <view class="footer-actions">
+  <!-- 底部操作栏 - 仅在非分享模式下显示 -->
+  <view class="footer-actions" wx:if="{{!readonlyShareView}}">
     <button class="action-button" bindtap="updateWatering">💧 更新浇水</button>
     <button class="action-button" bindtap="updateFertilizing">🌱 更新施肥</button>
     <button class="action-button" bindtap="takePhoto">📷 为它拍照</button>
@@ -224,5 +224,7 @@
     </view>
   </view>
 
+  <!-- 隐藏的canvas用于生成分享图片 -->
+  <canvas canvas-id="shareCanvas" style="width: 300px; height: 300px; position: fixed; top: -9999px; left: -9999px;"></canvas>
   
 </view>

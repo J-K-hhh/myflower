@@ -27,6 +27,18 @@ exports.main = async (event, context) => {
     if (!plant) {
       return { ok: false, error: 'not_found', debug: { method, listSize: list.length, sampleIds: (list || []).slice(0,5).map(i=>i && i.id), ownerOpenId, plantId } };
     }
+    
+    // 3) 获取分享者昵称
+    let ownerNickname = '朋友';
+    try {
+      const userDoc = await db.collection('users').doc(ownerOpenId).get();
+      if (userDoc.data && userDoc.data.nickName) {
+        ownerNickname = userDoc.data.nickName;
+      }
+    } catch (e) {
+      // 如果获取用户信息失败，使用默认值
+    }
+    
     // Sanitize: only return fields needed for display
     const safe = {
       id: plant.id || null,
@@ -38,7 +50,8 @@ exports.main = async (event, context) => {
       fertilizingHistory: Array.isArray(plant.fertilizingHistory) ? plant.fertilizingHistory : [],
       healthAnalyses: Array.isArray(plant.healthAnalyses) ? plant.healthAnalyses : [],
       lastWateringDate: plant.lastWateringDate || '',
-      lastFertilizingDate: plant.lastFertilizingDate || ''
+      lastFertilizingDate: plant.lastFertilizingDate || '',
+      ownerNickname: ownerNickname
     };
     // Resolve cloud fileIDs to temp URLs server-side (best-effort)
     try {

@@ -165,8 +165,8 @@ Page({
     
     if (isShared) {
       // 分享模式：显示"来自XX的植物名"
-      // 这里简化处理，实际项目中可能需要获取分享者姓名
-      title = `来自朋友的${plantName}`;
+      const ownerNickname = plant.ownerNickname || '朋友';
+      title = `来自${ownerNickname}的${plantName}`;
     }
     
     wx.setNavigationBarTitle({
@@ -851,6 +851,7 @@ Page({
     const path = owner && this.data.plantId
       ? `/pages/detail/detail?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
+    
     return {
       title: `分享我的植物：${plant.aiResult.name || '未知植物'}`,
       path: path,
@@ -870,5 +871,46 @@ Page({
       query: query,
       imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
     };
+  },
+
+  // 生成方形分享图片
+  generateShareImage: function() {
+    return new Promise((resolve, reject) => {
+      const plant = this.data.plant;
+      if (!plant || !plant.images || plant.images.length === 0) {
+        reject('No plant image available');
+        return;
+      }
+
+      const ctx = wx.createCanvasContext('shareCanvas', this);
+      const canvasWidth = 300;
+      const canvasHeight = 300;
+      
+      // 绘制背景
+      ctx.setFillStyle('#4CAF50');
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
+      // 绘制植物图片（居中裁剪为方形）
+      const imageUrl = plant.images[0];
+      ctx.drawImage(imageUrl, 0, 0, canvasWidth, canvasHeight);
+      
+      // 绘制植物名称
+      ctx.setFillStyle('#FFFFFF');
+      ctx.setFontSize(16);
+      ctx.setTextAlign('center');
+      ctx.fillText(plant.aiResult.name || '未知植物', canvasWidth / 2, canvasHeight - 20);
+      
+      ctx.draw(false, () => {
+        wx.canvasToTempFilePath({
+          canvasId: 'shareCanvas',
+          success: (res) => {
+            resolve(res.tempFilePath);
+          },
+          fail: (err) => {
+            reject(err);
+          }
+        }, this);
+      });
+    });
   }
 });

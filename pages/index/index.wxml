@@ -12,11 +12,6 @@
 
   <!-- 绿植列表 -->
   <view wx:else class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}}">
-    <!-- 动态状态图标 -->
-    <view class="status-icon-container">
-      <view class="status-icon">{{statusIcon}}</view>
-      <view class="status-text">{{statusText}}</view>
-    </view>
     
     <!-- 批量模式提示（固定在顶部） -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip">
