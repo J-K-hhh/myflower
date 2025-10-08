@@ -302,6 +302,7 @@ Page({
       wx.showToast({ title: '正在识别中，请稍候', icon: 'none' });
       return;
     }
+    
     const plantList = wx.getStorageSync('plantList') || [];
     const currentTime = new Date();
     const newPlant = {

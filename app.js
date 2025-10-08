@@ -22,8 +22,6 @@ App({
         this.openid = result.openid;
         console.log('[app] openid:', this.openid);
         
-        // 存储用户昵称到云数据库
-        this.saveUserNickname();
         
         return this.openid;
       } catch (e) {
@@ -61,31 +59,6 @@ App({
     this.globalData.currentTitle = title
   },
   
-  // 保存用户昵称到云数据库
-  saveUserNickname() {
-    if (!this.openid) return;
-    
-    wx.getUserProfile({
-      desc: '用于分享时显示您的昵称',
-      success: (res) => {
-        const nickName = res.userInfo.nickName;
-        if (nickName) {
-          // 存储到云数据库
-          wx.cloud.database().collection('users').doc(this.openid).set({
-            data: {
-              nickName: nickName,
-              updateTime: new Date()
-            }
-          }).catch(e => {
-            console.log('保存用户昵称失败:', e);
-          });
-        }
-      },
-      fail: (e) => {
-        console.log('获取用户信息失败:', e);
-      }
-    });
-  },
   
   globalData: {
     userInfo: null,

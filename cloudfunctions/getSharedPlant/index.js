@@ -28,21 +28,8 @@ exports.main = async (event, context) => {
       return { ok: false, error: 'not_found', debug: { method, listSize: list.length, sampleIds: (list || []).slice(0,5).map(i=>i && i.id), ownerOpenId, plantId } };
     }
     
-    // 3) 获取分享者昵称
-    let ownerNickname = '朋友';
-    try {
-      const userDoc = await db.collection('users').doc(ownerOpenId).get();
-      console.log('[getSharedPlant] userDoc:', userDoc);
-      if (userDoc.data && userDoc.data.nickName) {
-        ownerNickname = userDoc.data.nickName;
-        console.log('[getSharedPlant] found nickname:', ownerNickname);
-      } else {
-        console.log('[getSharedPlant] no nickname found, using default');
-      }
-    } catch (e) {
-      console.log('[getSharedPlant] error getting user info:', e);
-      // 如果获取用户信息失败，使用默认值
-    }
+    // 3) 直接使用默认昵称
+    const ownerNickname = '朋友';
     
     // Sanitize: only return fields needed for display
     const safe = {

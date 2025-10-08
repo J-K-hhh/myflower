@@ -103,6 +103,8 @@ Page({
     
     if (hasChanges) {
       wx.setStorageSync('plantList', updatedList);
+      // 标记首页需要刷新
+      try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
       // Persist to cloud database (best-effort)
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');
@@ -153,6 +155,8 @@ Page({
     
     if (hasChanges) {
       wx.setStorageSync('plantList', updatedList);
+      // 标记首页需要刷新
+      try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
       // Persist to cloud database (best-effort)
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');

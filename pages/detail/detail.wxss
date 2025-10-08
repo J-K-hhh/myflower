@@ -23,39 +23,56 @@
   height: 100%;
 }
 
-.image-actions {
-  position: absolute;
-  top: 20rpx;
-  right: 20rpx;
+/* 日期和操作按钮同行布局 */
+.image-date-row {
   display: flex;
-  gap: 10rpx;
-  z-index: 10;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
 }
 
-.action-btn {
-  background: rgba(0, 0, 0, 0.3);
-  color: rgba(255, 255, 255, 0.8);
+.image-date {
+  color: white;
+  font-size: 26rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+/* 图片操作按钮 - 内联位置 */
+.image-actions-inline {
+  display: flex;
+  gap: 10rpx;
+  margin-left: 20rpx;
+}
+
+.action-btn-inline {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
   padding: 6rpx 12rpx;
   border-radius: 15rpx;
   font-size: 22rpx;
-  backdrop-filter: blur(5rpx);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  font-weight: 500;
   transition: all 0.2s ease;
+  border: 1rpx solid rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
-.action-btn:active {
-  background: rgba(0, 0, 0, 0.5);
+.action-btn-inline:active {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(0.95);
+}
+
+.action-btn-inline.delete {
+  background: rgba(255, 77, 77, 0.9);
   color: white;
+  border-color: rgba(255, 77, 77, 0.3);
 }
 
-.action-btn.delete {
-  background: rgba(255, 77, 77, 0.4);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.action-btn.delete:active {
-  background: rgba(255, 77, 77, 0.7);
-  color: white;
+.action-btn-inline.delete:active {
+  background: rgba(255, 77, 77, 1);
+  transform: scale(0.95);
 }
 
 .cover-badge {
@@ -414,10 +431,10 @@
   border-radius: 8rpx;
 }
 
-/* 操作按钮组 - 新的布局 */
+/* 操作按钮组 - 垂直布局 */
 .action-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 15rpx;
   margin: 20rpx 0;
   padding: 0 20rpx;

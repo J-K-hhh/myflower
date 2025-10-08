@@ -164,17 +164,8 @@ Page({
     let title = plantName;
     
     if (isShared) {
-      // 分享模式：显示"来自XX的植物名"
-      const ownerNickname = plant.ownerNickname || '朋友';
-      title = `来自${ownerNickname}的${plantName}`;
-      
-      // 弹窗显示调试信息
-      wx.showModal({
-        title: '分享标题调试',
-        content: `ownerNickname: ${ownerNickname}\nplantName: ${plantName}\nfinal title: ${title}`,
-        showCancel: false,
-        confirmText: '知道了'
-      });
+      // 分享模式：显示"来自朋友的植物名"
+      title = `来自朋友的${plantName}`;
     }
     
     wx.setNavigationBarTitle({
@@ -806,6 +797,8 @@ Page({
           const fileIds = (target.images || []).filter(p => typeof p === 'string' && p.indexOf('cloud://') === 0);
           const newList = plantList.filter(p => p.id != this.data.plantId);
           wx.setStorageSync('plantList', newList);
+          // 标记首页需要刷新
+          try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
           // 先尝试云端文件删除（吞错）
           try {
             const cloudUtils = require('../../utils/cloud_utils.js');
@@ -881,8 +874,8 @@ Page({
     };
   },
 
-  // 生成方形分享图片
-  generateShareImage: function() {
+  // 生成方形分享图片（完整显示整张图片，aspectFit 模式）
+  generateShareImage: function () {
     return new Promise((resolve, reject) => {
       const plant = this.data.plant;
       if (!plant || !plant.images || plant.images.length === 0) {
@@ -890,35 +883,74 @@ Page({
         return;
       }
 
-      const ctx = wx.createCanvasContext('shareCanvas', this);
-      const canvasWidth = 300;
-      const canvasHeight = 300;
-      
-      // 绘制背景
-      ctx.setFillStyle('#4CAF50');
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-      
-      // 绘制植物图片（居中裁剪为方形）
       const imageUrl = plant.images[0];
-      ctx.drawImage(imageUrl, 0, 0, canvasWidth, canvasHeight);
       
-      // 绘制植物名称
-      ctx.setFillStyle('#FFFFFF');
-      ctx.setFontSize(16);
-      ctx.setTextAlign('center');
-      ctx.fillText(plant.aiResult.name || '未知植物', canvasWidth / 2, canvasHeight - 20);
-      
-      ctx.draw(false, () => {
-        wx.canvasToTempFilePath({
-          canvasId: 'shareCanvas',
-          success: (res) => {
-            resolve(res.tempFilePath);
+      // 先尝试canvas绘制
+      try {
+        const ctx = wx.createCanvasContext('shareCanvas', this);
+        const canvasWidth = 300;
+        const canvasHeight = 300;
+        const dpr = wx.getSystemInfoSync().pixelRatio || 1;
+
+        ctx.scale(dpr, dpr);
+
+        // 绘制背景
+        ctx.setFillStyle('#4CAF50');
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // 获取图片信息
+        wx.getImageInfo({
+          src: imageUrl,
+          success: (info) => {
+            const srcW = info.width;
+            const srcH = info.height;
+
+            // === 计算 aspectFit 缩放 ===
+            const scale = Math.min(canvasWidth / srcW, canvasHeight / srcH);
+            const drawW = srcW * scale;
+            const drawH = srcH * scale;
+
+            // 居中位置
+            const x = (canvasWidth - drawW) / 2;
+            const y = (canvasHeight - drawH) / 2;
+
+            // 绘制整张图片
+            ctx.drawImage(imageUrl, x, y, drawW, drawH);
+
+            // 绘制文字标题
+            ctx.setFillStyle('#FFFFFF');
+            ctx.setFontSize(16);
+            ctx.setTextAlign('center');
+            ctx.fillText(plant.aiResult?.name || '未知植物', canvasWidth / 2, canvasHeight - 20);
+
+            ctx.draw(false, () => {
+              wx.canvasToTempFilePath({
+                canvasId: 'shareCanvas',
+                destWidth: canvasWidth * dpr,
+                destHeight: canvasHeight * dpr,
+                success: (res) => {
+                  console.log('Canvas生成分享图片成功');
+                  resolve(res.tempFilePath);
+                },
+                fail: (err) => {
+                  console.error('生成分享图片失败:', err);
+                  // 如果生成失败，返回原始图片
+                  resolve(imageUrl);
+                }
+              }, this);
+            });
           },
           fail: (err) => {
-            reject(err);
+            console.error('获取图片信息失败:', err);
+            // 如果获取图片信息失败，直接使用原始图片
+            resolve(imageUrl);
           }
-        }, this);
-      });
+        });
+      } catch (error) {
+        console.error('Canvas绘制异常:', error);
+        // 如果canvas绘制异常，直接使用原始图片
+        resolve(imageUrl);
+      }
     });
   }
 });

@@ -6,8 +6,16 @@
         <image src="{{item}}" class="swiper-image" mode="aspectFill" bindtap="previewImage" data-src="{{item}}"></image>
         <!-- V0.3 图片信息显示 -->
         <view class="image-info-overlay">
-          <view class="image-date" wx:if="{{plant.imageInfos && plant.imageInfos[index]}}">
-            📅 {{plant.imageInfos[index].date}}
+          <!-- 日期和操作按钮在同一行 -->
+          <view class="image-date-row" wx:if="{{plant.imageInfos && plant.imageInfos[index]}}">
+            <view class="image-date">
+              📅 {{plant.imageInfos[index].date}}
+            </view>
+            <!-- 图片操作按钮 - 与日期在同一行 -->
+            <view class="image-actions-inline" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
+              <text class="action-btn-inline" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
+              <text class="action-btn-inline delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
+            </view>
           </view>
           <!-- 编辑备忘模式 - 仅在非分享模式下显示 -->
           <view wx:if="{{editingMemoIndex === index && !readonlyShareView}}" class="memo-edit-container">
@@ -36,10 +44,6 @@
                 data-index="{{index}}">
             📝 添加备忘
           </view>
-        </view>
-        <view class="image-actions" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
-          <text class="action-btn" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
-          <text class="action-btn delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
         </view>
         <!-- V0.3 图片顺序调整按钮 - 仅在非分享模式下显示 -->
         <view class="image-order-actions" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
@@ -229,6 +233,6 @@
   </view>
 
   <!-- 隐藏的canvas用于生成分享图片 -->
-  <canvas canvas-id="shareCanvas" style="width: 300px; height: 300px; position: fixed; top: -9999px; left: -9999px;"></canvas>
+  <canvas canvas-id="shareCanvas" style="width:300px;height:300px;"></canvas>
   
 </view>
