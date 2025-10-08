@@ -208,4 +208,23 @@ function deleteCloudFiles(fileIdList) {
 
 module.exports.deleteCloudFiles = deleteCloudFiles;
 
+// (Snapshot helpers removed)
+
+// Dynamic shared read: fetch a single plant by owner+id
+function loadSharedPlantByOwner(ownerOpenId, plantId) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve(null); return; }
+    if (!ownerOpenId || !plantId) { resolve(null); return; }
+    wx.cloud.callFunction({
+      name: 'getSharedPlant',
+      data: { ownerOpenId, plantId }
+    }).then(res => {
+      const result = (res && res.result) || {};
+      resolve(result); // 直接返回（云端已尽力把图片转成URL）
+    }).catch(() => resolve(null));
+  });
+}
+
+module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
+
 

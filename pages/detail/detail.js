@@ -5,6 +5,8 @@ Page({
   data: {
     plantId: null,
     plant: {},
+    readonlyShareView: false,
+    shareOwnerOpenId: '',
     isEditingName: false,
     editingName: '',
     showHistoryModal: false,
@@ -21,18 +23,59 @@ Page({
     editingMemo: ''
   },
   onLoad: function (options) {
-    if (options.id) {
-      this.setData({ plantId: options.id });
-      this.loadSettings();
-      this.checkLocationPermission();
-      this.loadPlantDetail(options.id);
-    } else {
-      wx.showToast({
-        title: '缺少植物ID',
-        icon: 'error',
-        complete: () => wx.navigateBack()
-      });
+    try { console.log('[detail] onLoad options =', options); } catch (e) {}
+    try {
+      const enter = wx.getEnterOptionsSync && wx.getEnterOptionsSync();
+      if (enter) {
+        console.log('[detail] getEnterOptionsSync =', enter);
+      }
+    } catch (e) {}
+    // 支持两种入口：本地 id 或 分享 shareId
+    const { id, owner, pid } = options || {};
+    this.loadSettings();
+    this.checkLocationPermission();
+    // 启用系统分享菜单
+    wx.showShareMenu({ withShareTicket: true, menus: ['shareAppMessage', 'shareTimeline'] });
+
+    // 预取 openid（用于分享链接 owner 参数）
+    try {
+      const app = getApp();
+      if (app && app.ready) {
+        app.ready.then((oid) => {
+          if (oid) {
+            this.setData({ shareOwnerOpenId: oid });
+          }
+        }).catch(() => {});
+      } else if (app && app.openid) {
+        this.setData({ shareOwnerOpenId: app.openid });
+      }
+    } catch (e) {}
+
+    if (owner && pid) {
+      // 通过 owner+pid 动态读取分享数据
+      this.setData({ readonlyShareView: true });
+      try {
+        wx.showModal({
+          title: '调试参数',
+          content: `owner=${owner}\npid=${pid}`,
+          showCancel: false
+        });
+      } catch (e) {}
+      this.loadSharedPlantByOwner(owner, pid);
+      return;
     }
+
+    if (id) {
+      this.setData({ plantId: id, readonlyShareView: false });
+      this.loadPlantDetail(id);
+      return;
+    }
+
+    wx.showToast({
+      title: '缺少植物ID',
+      icon: 'error',
+      complete: () => wx.navigateBack()
+    });
   },
 
   onShow: function() {
@@ -110,6 +153,10 @@ Page({
         } catch (e) {}
       }
       this.setData({ plant: plant });
+      // 确保本地视图也可显示 cloud:// 图片（转换为临时URL，但不弹窗）
+      this.resolveCloudImagesForReadonly(plant).then((resolved) => {
+        this.setData({ plant: resolved });
+      }).catch(() => {});
     } else {
       wx.showToast({
         title: '找不到该植物信息',
@@ -117,6 +164,99 @@ Page({
         complete: () => wx.navigateBack()
       });
     }
+  },
+
+  // (snapshot loading removed)
+
+  loadSharedPlantByOwner: function(ownerOpenId, plantId) {
+    try {
+      const cloudUtils = require('../../utils/cloud_utils.js');
+      if (!cloudUtils || !cloudUtils.loadSharedPlantByOwner) {
+        wx.showToast({ title: '无法加载分享内容', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 1500);
+        return;
+      }
+      wx.showLoading({ title: '加载分享...' });
+      cloudUtils.loadSharedPlantByOwner(ownerOpenId, plantId).then((sharedPlant) => {
+        wx.hideLoading();
+        // 支持返回 { plant, debug }
+        const plant = sharedPlant && sharedPlant.plant ? sharedPlant.plant : sharedPlant;
+        const debug = sharedPlant && sharedPlant.debug ? sharedPlant.debug : null;
+        if (!plant) {
+          if (debug) {
+            try {
+              wx.showModal({
+                title: '调试信息',
+                content: `加载失败\nmethod=${debug.method || ''}\nlistSize=${debug.listSize || 0}\nowner=${debug.ownerOpenId || ''}\npid=${debug.plantId || ''}\nsampleIds=${(debug.sampleIds||[]).join(',')}`,
+                showCancel: false
+              });
+            } catch (e) {}
+          }
+          wx.showToast({ title: '分享已失效或被删除', icon: 'none' });
+          setTimeout(() => wx.navigateBack(), 1500);
+          return;
+        }
+        if (plant.createTime) {
+          plant.createDate = new Date(plant.createTime).toLocaleDateString();
+        }
+        // 将 cloud:// 图片转换为临时URL，确保接收方可访问
+        this.resolveCloudImagesForReadonly(plant).then((resolvedPlant) => {
+          this.setData({ plant: resolvedPlant });
+        }).catch(() => {
+          this.setData({ plant: plant });
+        });
+        if (debug) {
+          try {
+            wx.showModal({
+              title: '调试信息',
+              content: `加载成功\nmethod=${debug.method || ''}\nlistSize=${debug.listSize || 0}`,
+              showCancel: false
+            });
+          } catch (e) {}
+        }
+      }).catch(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '加载失败', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 1500);
+      });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: '加载失败', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 1500);
+    }
+  },
+
+  // 仅在只读共享视图下：把 cloud:// fileID 批量转换为临时 URL
+  resolveCloudImagesForReadonly: function(plant) {
+    return new Promise((resolve) => {
+      try {
+        const p = { ...plant };
+        const ids = (Array.isArray(p.images) ? p.images : []).filter(path => typeof path === 'string' && path.indexOf('cloud://') === 0);
+        const infoIds = Array.isArray(p.imageInfos) ? p.imageInfos.map(i => i && i.path).filter(path => typeof path === 'string' && path && path.indexOf('cloud://') === 0) : [];
+        const fileList = Array.from(new Set([ ...ids, ...infoIds ]));
+        if (!wx.cloud || !wx.cloud.getTempFileURL || fileList.length === 0) {
+          resolve(p); return;
+        }
+        wx.cloud.getTempFileURL({ fileList }).then((res) => {
+          const map = {};
+          (res.fileList || []).forEach(i => { if (i && i.fileID && i.tempFileURL) { map[i.fileID] = i.tempFileURL; } });
+          if (Array.isArray(p.images)) {
+            p.images = p.images.map(path => (typeof path === 'string' && map[path]) ? map[path] : path);
+          }
+          if (Array.isArray(p.imageInfos)) {
+            p.imageInfos = p.imageInfos.map(info => {
+              if (info && typeof info.path === 'string' && map[info.path]) {
+                return { ...info, path: map[info.path] };
+              }
+              return info;
+            });
+          }
+          resolve(p);
+        }).catch(() => resolve(p));
+      } catch (e) {
+        resolve(plant);
+      }
+    });
   },
   previewImage: function (e) {
     const currentSrc = e.currentTarget.dataset.src;
@@ -364,6 +504,8 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // 标记首页需要刷新
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     // Persist to cloud database (best-effort)
     if (cloudUtils && cloudUtils.isCloudAvailable) {
       try {
@@ -435,6 +577,8 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // 标记首页需要刷新
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     // Persist to cloud database (best-effort)
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
@@ -459,6 +603,8 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // 标记首页需要刷新
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     // Persist to cloud database (best-effort)
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
@@ -493,6 +639,8 @@ Page({
       return plant;
     });
     wx.setStorageSync('plantList', updatedList);
+    // 标记首页需要刷新
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     // Persist to cloud database (best-effort)
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
       try {
@@ -690,5 +838,60 @@ Page({
         }
       }
     });
+  },
+
+
+  wrapText: function(ctx, text, maxWidth) {
+    const words = text.split('');
+    const lines = [];
+    let currentLine = '';
+    
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine + words[i];
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine !== '') {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  },
+
+  // 分享给好友的回调：优先使用 owner+pid
+  onShareAppMessage: function() {
+    const plant = this.data.plant;
+    const owner = this.data.shareOwnerOpenId || (getApp() && getApp().openid) || '';
+    const path = owner && this.data.plantId
+      ? `/pages/detail/detail?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
+      : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
+    try { console.log('[detail] onShareAppMessage path =', path); } catch (e) {}
+    return {
+      title: `分享我的植物：${plant.aiResult.name || '未知植物'}`,
+      path: path,
+      imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
+    };
+  },
+
+  // 分享到朋友圈的回调：使用 owner+pid
+  onShareTimeline: function() {
+    const plant = this.data.plant;
+    const owner = this.data.shareOwnerOpenId || (getApp() && getApp().openid) || '';
+    const query = owner && this.data.plantId
+      ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
+      : `id=${encodeURIComponent(this.data.plantId)}`;
+    try { console.log('[detail] onShareTimeline query =', query); } catch (e) {}
+    return {
+      title: `我的植物：${plant.aiResult.name || '未知植物'} - 来自我的阳台花园`,
+      query: query,
+      imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
+    };
   }
 });

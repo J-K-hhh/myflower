@@ -11,6 +11,17 @@ Page({
     batchHistoryData: []
   },
   onShow: function () {
+    // 仅在需要时刷新，减少从详情返回时的全量刷新闪烁
+    try {
+      const shouldRefresh = wx.getStorageSync('shouldRefreshPlantList');
+      const hasLocal = Array.isArray(this.data.plantList) && this.data.plantList.length > 0;
+      if (!shouldRefresh && hasLocal) {
+        this.setRandomTitle();
+        return;
+      }
+    } catch (e) {}
+    // 清除刷新标记并加载
+    try { wx.removeStorageSync('shouldRefreshPlantList'); } catch (e) {}
     this.loadPlantData();
     this.setRandomTitle();
   },

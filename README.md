@@ -7,16 +7,35 @@
   - Update your plant's healthy status
   - Summarized caring tips for you plant
   - Fun facts about your plant
+  - Batch operations for watering and fertilizing
+  - Image management with memos and ordering
+  - Plant sharing to WeChat friends and moments
 
 ## How does it work?
 - Using the API of the model qwen-vl-max to analyze your plant
+- Support for both Baidu AI and Qwen-VL models
+- Cloud storage integration for data synchronization
+- Location-based personalized care suggestions
+
+## Features
+- **Plant Recognition**: Automatic identification using AI models
+- **Care Tracking**: Record watering and fertilizing schedules
+- **Health Analysis**: AI-powered plant health assessment
+- **Batch Operations**: Manage multiple plants simultaneously
+- **Image Management**: Organize photos with memos and custom ordering
+- **Sharing**: Share plant information with friends via WeChat
+- **Cloud Sync**: Data synchronization across devices
 
 ## Get Started
 - This **WeChat Mini-Program** is already published on the list called 阳台森友. 
 - It provides English and Chinese. 
+<<<<<<< HEAD
+=======
+- No building process required. Download the app at [here](https://github.com/J-K-hhh/myflower/releases)
+>>>>>>> 7fd0da3 (feat(share): implement dynamic shared view via owner+pid; fix image display by resolving cloud fileIDs to temp URLs on both server and client; remove snapshot flow; refine index refresh logic; docs update; cleanup fallbacks)
 
 ## Issues
-The list of known issues are [here](https://github.com/kolafish/myflower/issues)
+The list of known issues are [here](https://github.com/J-K-hhh/myflower/issues)
 
 ## Support
 You can ask for help in:

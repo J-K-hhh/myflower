@@ -354,6 +354,8 @@ Page({
         icon: 'success',
         duration: 800
       });
+      // 标记首页需要刷新
+      try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
       setTimeout(() => {
         wx.navigateBack();
       }, 800);
