@@ -401,42 +401,42 @@
   border-radius: 8rpx;
 }
 
-/* 底部操作栏 */
-.footer-actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  padding: 20rpx;
-  display: flex;
+/* 操作按钮组 - 新的布局 */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 15rpx;
-  box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.1);
-  z-index: 100;
+  margin: 20rpx 0;
+  padding: 0 20rpx;
 }
 
-.action-button {
-  flex: 1;
-  height: 70rpx;
+.action-btn {
+  height: 80rpx;
   background: #07c160;
   color: white;
   border: none;
-  border-radius: 10rpx;
-  font-size: 26rpx;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(7, 193, 96, 0.3);
+  transition: all 0.2s ease;
 }
 
-.action-button:disabled {
-  background: #ccc;
+.action-btn:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 2rpx 8rpx rgba(7, 193, 96, 0.3);
 }
 
-.action-button-danger {
-  flex: 1;
-  height: 70rpx;
+.action-btn.danger {
   background: #ff4757;
-  color: white;
-  border: none;
-  border-radius: 10rpx;
-  font-size: 26rpx;
+  box-shadow: 0 4rpx 12rpx rgba(255, 71, 87, 0.3);
+}
+
+.action-btn.danger:active {
+  box-shadow: 0 2rpx 8rpx rgba(255, 71, 87, 0.3);
 }
 
 

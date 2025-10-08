@@ -84,6 +84,14 @@
         </view>
         <text class="history-btn" wx:if="{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0}}">查看详情</text>
       </view>
+      
+      <!-- 操作按钮 - 仅在非分享模式下显示，移到施肥记录后面 -->
+      <view class="action-buttons" wx:if="{{!readonlyShareView}}">
+        <button class="action-btn" bindtap="updateWatering">💧 更新浇水</button>
+        <button class="action-btn" bindtap="updateFertilizing">🌱 更新施肥</button>
+        <button class="action-btn" bindtap="takePhoto">📷 为它拍照</button>
+        <button class="action-btn danger" bindtap="deletePlant">🗑️ 删除绿植</button>
+      </view>
       <view class="info-card" bindtap="viewHealthAnalyses" wx:if="{{selectedModel === 'qwen-vl'}}">
         <text class="info-icon">🏥</text>
         <view class="info-text">
@@ -194,13 +202,6 @@
     </view>
   </view>
 
-  <!-- 底部操作栏 - 仅在非分享模式下显示 -->
-  <view class="footer-actions" wx:if="{{!readonlyShareView}}">
-    <button class="action-button" bindtap="updateWatering">💧 更新浇水</button>
-    <button class="action-button" bindtap="updateFertilizing">🌱 更新施肥</button>
-    <button class="action-button" bindtap="takePhoto">📷 为它拍照</button>
-    <button class="action-button-danger" bindtap="deletePlant">🗑️ 删除绿植</button>
-  </view>
 
   <!-- 历史记录弹窗 -->
   <view class="history-modal" wx:if="{{showHistoryModal}}" bindtap="closeHistoryModal">

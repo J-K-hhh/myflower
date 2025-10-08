@@ -32,10 +32,15 @@ exports.main = async (event, context) => {
     let ownerNickname = '朋友';
     try {
       const userDoc = await db.collection('users').doc(ownerOpenId).get();
+      console.log('[getSharedPlant] userDoc:', userDoc);
       if (userDoc.data && userDoc.data.nickName) {
         ownerNickname = userDoc.data.nickName;
+        console.log('[getSharedPlant] found nickname:', ownerNickname);
+      } else {
+        console.log('[getSharedPlant] no nickname found, using default');
       }
     } catch (e) {
+      console.log('[getSharedPlant] error getting user info:', e);
       // 如果获取用户信息失败，使用默认值
     }
     

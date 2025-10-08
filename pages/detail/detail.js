@@ -166,9 +166,11 @@ Page({
     if (isShared) {
       // 分享模式：显示"来自XX的植物名"
       const ownerNickname = plant.ownerNickname || '朋友';
+      console.log('[updatePageTitle] ownerNickname:', ownerNickname);
       title = `来自${ownerNickname}的${plantName}`;
     }
     
+    console.log('[updatePageTitle] final title:', title);
     wx.setNavigationBarTitle({
       title: title
     });
