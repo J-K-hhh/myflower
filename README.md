@@ -29,10 +29,6 @@
 ## Get Started
 - This **WeChat Mini-Program** is already published on the list called 阳台森友. 
 - It provides English and Chinese. 
-<<<<<<< HEAD
-=======
-- No building process required. Download the app at [here](https://github.com/J-K-hhh/myflower/releases)
->>>>>>> 7fd0da3 (feat(share): implement dynamic shared view via owner+pid; fix image display by resolving cloud fileIDs to temp URLs on both server and client; remove snapshot flow; refine index refresh logic; docs update; cleanup fallbacks)
 
 ## Issues
 The list of known issues are [here](https://github.com/J-K-hhh/myflower/issues)
