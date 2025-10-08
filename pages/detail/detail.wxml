@@ -90,7 +90,6 @@
         <button class="action-btn" bindtap="updateWatering">💧 更新浇水</button>
         <button class="action-btn" bindtap="updateFertilizing">🌱 更新施肥</button>
         <button class="action-btn" bindtap="takePhoto">📷 为它拍照</button>
-        <button class="action-btn danger" bindtap="deletePlant">🗑️ 删除绿植</button>
       </view>
       <view class="info-card" bindtap="viewHealthAnalyses" wx:if="{{selectedModel === 'qwen-vl'}}">
         <text class="info-icon">🏥</text>
@@ -202,6 +201,10 @@
     </view>
   </view>
 
+  <!-- 删除按钮 - 仅在非分享模式下显示，放在页面最下方 -->
+  <view class="delete-section" wx:if="{{!readonlyShareView}}">
+    <button class="delete-plant-btn" bindtap="deletePlant">🗑️ 删除绿植</button>
+  </view>
 
   <!-- 历史记录弹窗 -->
   <view class="history-modal" wx:if="{{showHistoryModal}}" bindtap="closeHistoryModal">
