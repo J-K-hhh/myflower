@@ -13,9 +13,7 @@
 
 ## Get Started
 - This **WeChat Mini-Program** is already published on the list called 阳台森友. 
-- Available as **app**. Supports macOS, Windows, iOS and Android.
 - It provides English and Chinese. 
-- No building process required. Download the app at [here](https://github.com/kolafish/myflower/releases)
 
 ## Issues
 The list of known issues are [here](https://github.com/kolafish/myflower/issues)
