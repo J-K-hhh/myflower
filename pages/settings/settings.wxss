@@ -3,6 +3,7 @@
   padding: 20rpx;
   min-height: 100vh;
   position: relative;
+  padding-top: 20rpx !important; /* 确保使用自己的padding-top */
 }
 
 /* 背景图片 */
