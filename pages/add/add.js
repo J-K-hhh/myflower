@@ -1,5 +1,6 @@
 const modelUtils = require('../../utils/model_utils.js');
 const cloudUtils = require('../../utils/cloud_utils.js');
+const i18n = require('../../utils/i18n.js');
 Page({
   data: {
     tempImagePath: '',
@@ -9,9 +10,13 @@ Page({
     isLoading: false,
     currentLocation: null,
     locationEnabled: false,
-    selectedModel: 'baidu'
+    selectedModel: 'baidu',
+    i18n: i18n.getSection('add'),
+    i18nCommon: i18n.getSection('common'),
+    language: i18n.getLanguage()
   },
   onLoad: function () {
+    this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
     this.testApiConnection();
@@ -19,9 +24,27 @@ Page({
 
   onShow: function() {
     // 每次显示页面时重新加载设置，确保使用最新的模型选择
+    this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
     this.setRandomTitle();
+  },
+  updateTranslations: function() {
+    const app = getApp();
+    const language = app && typeof app.getLanguage === 'function' ? app.getLanguage() : i18n.getLanguage();
+    this.setData({
+      i18n: i18n.getSection('add', language),
+      i18nCommon: i18n.getSection('common', language),
+      language: language
+    });
+  },
+  translate: function(namespace, keyPath, params = {}) {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+    const language = this.data.language || i18n.getLanguage();
+    return i18n.t(namespace, keyPath, params, language);
   },
   
   setRandomTitle: function() {
@@ -63,7 +86,7 @@ Page({
   testApiConnection: function () {
     console.log('开始测试API连接，模型:', this.data.selectedModel);
     
-    wx.showLoading({ title: '测试API连接...' });
+    wx.showLoading({ title: this.translate('add', 'apiTest.testing') });
     
     // 使用新的模型配置检查
     const modelConfig = modelUtils.getModelConfig(this.data.selectedModel);
@@ -71,10 +94,10 @@ Page({
     if (!modelConfig.apiKey) {
       wx.hideLoading();
       wx.showModal({
-        title: 'API Key未配置',
-        content: `请先配置${modelConfig.name}的API Key`,
+        title: this.translate('add', 'apiTest.missingKeyTitle'),
+        content: this.translate('add', 'apiTest.missingKeyContent', { modelName: this.getModelDisplayName(this.data.selectedModel) }) + '',
         showCancel: false,
-        confirmText: '确定'
+        confirmText: this.translate('common', 'ok')
       });
       return;
     }
@@ -83,7 +106,7 @@ Page({
     setTimeout(() => {
       wx.hideLoading();
       wx.showToast({
-        title: 'API配置正常',
+        title: this.translate('add', 'apiTest.successTitle'),
         icon: 'success',
         duration: 2000
       });
@@ -117,10 +140,10 @@ Page({
             .catch((err) => {
               console.warn('[add] upload failed, fallback to saveFile:', err);
               wx.showModal({
-                title: '上传到云端失败',
-                content: '已改为仅保存到本地，图片不会出现在云存储。',
+                title: this.translate('add', 'apiTest.cloudUploadFailedTitle'),
+                content: this.translate('add', 'apiTest.cloudUploadFailedContent'),
                 showCancel: false,
-                confirmText: '知道了'
+                confirmText: this.translate('common', 'gotIt')
               });
               wx.saveFile({
                 tempFilePath: tempFilePath,
@@ -139,10 +162,10 @@ Page({
         } else {
           console.log('[add] cloud unavailable, using saveFile fallback');
           wx.showModal({
-            title: '云能力不可用',
-            content: '当前无法上传到云存储，图片将仅保存在本地，云端不可见。',
+            title: this.translate('add', 'apiTest.cloudUnavailableTitle'),
+            content: this.translate('add', 'apiTest.cloudUnavailableContent'),
             showCancel: false,
-            confirmText: '知道了'
+            confirmText: this.translate('common', 'gotIt')
           });
           wx.saveFile({
             tempFilePath: tempFilePath,
@@ -170,14 +193,14 @@ Page({
     console.log('页面数据中的模型:', this.data.selectedModel);
     
     // 分状态显示识别进度
-    this.showRecognitionProgress('正在准备图片...');
+    this.showRecognitionProgress(this.translate('add', 'recognition.preparingImage'));
     
     // 延迟一下让用户看到状态变化
     setTimeout(() => {
-      this.showRecognitionProgress('正在连接AI模型...');
+      this.showRecognitionProgress(this.translate('add', 'recognition.connectingModel'));
       
       setTimeout(() => {
-        this.showRecognitionProgress('正在分析植物特征...');
+        this.showRecognitionProgress(this.translate('add', 'recognition.analyzing'));
         
         modelUtils.recognizePlant(filePath, location, (message) => {
           console.log('进度更新:', message);
@@ -189,7 +212,7 @@ Page({
           console.log('结果类型:', typeof res);
           console.log('结果键:', Object.keys(res || {}));
           
-          this.showRecognitionProgress('正在处理识别结果...');
+          this.showRecognitionProgress(this.translate('add', 'recognition.processing'));
           
           setTimeout(() => {
             console.log('=== 更新页面状态 ===');
@@ -207,54 +230,54 @@ Page({
           wx.hideLoading();
           
           // 识别失败时提供选择
-          const errorDetails = `
-模型: ${currentModel}
-错误信息: ${err.message || '未知错误'}
-错误类型: ${err.name || 'Error'}
-完整错误: ${JSON.stringify(err, null, 2)}
-          `.trim();
+          const errorDetails = [
+            `${this.translate('add', 'recognition.errorLabels.model')}: ${currentModel}`,
+            `${this.translate('add', 'recognition.errorLabels.message')}: ${err.message || this.translate('add', 'recognition.errorPlaceholder')}`,
+            `${this.translate('add', 'recognition.errorLabels.type')}: ${err.name || 'Error'}`,
+            `${this.translate('add', 'recognition.errorLabels.full')}: ${JSON.stringify(err, null, 2)}`
+          ].join('\n');
           
           console.log('详细错误信息:', errorDetails);
           
           wx.showModal({
-            title: '识别失败',
-            content: `植物识别失败，是否继续添加绿植？\n\n错误详情：\n${err.message || '未知错误'}`,
-            confirmText: '继续添加',
-            cancelText: '查看详情',
+            title: this.translate('add', 'recognition.failedTitle'),
+            content: this.translate('add', 'recognition.failedContent', { error: err.message || this.translate('add', 'recognition.errorPlaceholder') }),
+            confirmText: this.translate('common', 'continueAdding'),
+            cancelText: this.translate('common', 'viewDetails'),
             success: (res) => {
               if (res.confirm) {
                 // 用户选择继续添加，设置默认的AI结果
                 this.setData({
                   aiResult: {
-                    name: '未知植物',
+                    name: this.translate('common', 'unknownPlant'),
                     model: currentModel,
-                    error: err.message || '识别失败'
+                    error: err.message || this.translate('add', 'recognition.failedTitle')
                   }
                 });
                 wx.showToast({
-                  title: '可以继续添加绿植',
+                  title: this.translate('add', 'recognition.continueAddingTitle'),
                   icon: 'success'
                 });
               } else {
                 // 用户选择查看详情，显示完整错误信息
                 wx.showModal({
-                  title: '详细错误信息',
+                  title: this.translate('add', 'recognition.fullErrorTitle'),
                   content: errorDetails,
                   showCancel: true,
-                  cancelText: '重新识别',
-                  confirmText: '继续添加',
+                  cancelText: this.translate('common', 'retry'),
+                  confirmText: this.translate('common', 'continueAdding'),
                   success: (detailRes) => {
                     if (detailRes.confirm) {
                       // 继续添加
                       this.setData({
                         aiResult: {
-                          name: '未知植物',
+                          name: this.translate('common', 'unknownPlant'),
                           model: currentModel,
-                          error: err.message || '识别失败'
+                          error: err.message || this.translate('add', 'recognition.failedTitle')
                         }
                       });
                       wx.showToast({
-                        title: '可以继续添加绿植',
+                        title: this.translate('add', 'recognition.continueAddingTitle'),
                         icon: 'success'
                       });
                     } else {
@@ -273,7 +296,7 @@ Page({
       }, 1000);
     }, 1000);
   },
-  
+
   // 显示识别进度
   showRecognitionProgress: function(message) {
     wx.showLoading({
@@ -295,11 +318,11 @@ Page({
   formSubmit: function () {
     console.log('[add] formSubmit start');
     if (!this.data.tempImagePath) {
-      wx.showToast({ title: '请先选择一张图片', icon: 'none' });
+      wx.showToast({ title: this.translate('add', 'recognition.selectImageFirst'), icon: 'none' });
       return;
     }
     if (this.data.isLoading) {
-      wx.showToast({ title: '正在识别中，请稍候', icon: 'none' });
+      wx.showToast({ title: this.translate('add', 'recognition.recognizingWait'), icon: 'none' });
       return;
     }
     
@@ -351,7 +374,7 @@ Page({
     });
     ensurePersist.then(() => {
       wx.showToast({
-        title: '🌱 种下成功！',
+        title: this.translate('add', 'recognition.successModalTitle'),
         icon: 'success',
         duration: 800
       });
@@ -361,5 +384,20 @@ Page({
         wx.navigateBack();
       }, 800);
     });
+  },
+
+  getModelDisplayName: function(modelId) {
+    const id = modelId || this.data.selectedModel;
+    if (!id) return '';
+    if (id === 'baidu') {
+      return this.translate('add', 'info.modelBaidu');
+    }
+    if (id.indexOf('qwen') === 0) {
+      return this.translate('add', 'info.modelQwen');
+    }
+    if (id.indexOf('gemini') === 0) {
+      return 'Gemini';
+    }
+    return id;
   }
 });

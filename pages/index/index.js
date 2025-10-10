@@ -1,3 +1,5 @@
+const i18n = require('../../utils/i18n.js');
+
 Page({
   data: {
     plantList: [],
@@ -6,10 +8,18 @@ Page({
     showBatchActions: false,
     // V0.3 批量操作历史
     showBatchHistoryModal: false,
-    batchHistoryData: []
+    batchHistoryData: [],
+    i18n: i18n.getSection('index'),
+    i18nCommon: i18n.getSection('common'),
+    language: i18n.getLanguage(),
+    batchSelectionText: i18n.t('index', 'batchMode.selectedCount', { count: 0 })
+  },
+  onLoad: function () {
+    this.updateTranslations();
   },
   onShow: function () {
     // 仅在需要时刷新，减少从详情返回时的全量刷新闪烁
+    this.updateTranslations();
     try {
       const shouldRefresh = wx.getStorageSync('shouldRefreshPlantList');
       const hasLocal = Array.isArray(this.data.plantList) && this.data.plantList.length > 0;
@@ -22,6 +32,45 @@ Page({
     try { wx.removeStorageSync('shouldRefreshPlantList'); } catch (e) {}
     this.loadPlantData();
     this.setRandomTitle();
+  },
+  updateTranslations: function() {
+    const app = getApp();
+    const language = app && typeof app.getLanguage === 'function' ? app.getLanguage() : i18n.getLanguage();
+    this.setData({
+      i18n: i18n.getSection('index', language),
+      i18nCommon: i18n.getSection('common', language),
+      language: language
+    });
+    this.updateBatchSelectionText(this.data.selectedPlants.length || 0);
+    if (Array.isArray(this.data.batchHistoryData) && this.data.batchHistoryData.length > 0) {
+      const delimiter = this.translate('common', 'listDelimiter');
+      const updatedHistory = this.data.batchHistoryData.map(item => {
+        const plantList = Array.isArray(item.plantNames) ? item.plantNames.join(delimiter) : item.plantList;
+        const typeText = item.type === 'watering'
+          ? this.translate('index', 'batchMode.watering')
+          : this.translate('index', 'batchMode.fertilizing');
+        return {
+          ...item,
+          plantList,
+          typeText,
+          plantCountLabel: this.translate('index', 'batchMode.plantCountLabel', { count: item.count })
+        };
+      });
+      this.setData({ batchHistoryData: updatedHistory });
+    }
+  },
+  translate: function(namespace, keyPath, params = {}) {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+    const language = this.data.language || i18n.getLanguage();
+    return i18n.t(namespace, keyPath, params, language);
+  },
+
+  updateBatchSelectionText: function(count) {
+    const text = this.translate('index', 'batchMode.selectedCount', { count });
+    this.setData({ batchSelectionText: text });
   },
   
   setRandomTitle: function() {
@@ -44,15 +93,15 @@ Page({
           cloudUtils.loadPlantList().then(cloudList => {
             if (cloudList.length > 0) {
               wx.setStorageSync('plantList', cloudList);
-              wx.showToast({ title: '已从云端恢复数据', icon: 'success' });
+              wx.showToast({ title: this.translate('common', 'storage.restoreSuccess'), icon: 'success' });
               this.loadPlantData();
             } else {
-              wx.showToast({ title: '没有云端数据', icon: 'none' });
+              wx.showToast({ title: this.translate('common', 'storage.restoreEmpty'), icon: 'none' });
               this.finishLoad(plantList);
             }
           }).catch((err) => {
             console.warn('[index] cloud restore failed:', err);
-            wx.showToast({ title: '云端恢复失败', icon: 'none' });
+            wx.showToast({ title: this.translate('common', 'storage.restoreFailed'), icon: 'none' });
             this.finishLoad(plantList);
           });
           return;
@@ -122,6 +171,7 @@ Page({
       selectedPlants: newBatchMode ? [] : [],
       showBatchActions: false
     });
+    this.updateBatchSelectionText(0);
   },
   
   togglePlantSelection: function(e) {
@@ -147,17 +197,18 @@ Page({
       plantList: plantList,
       showBatchActions: selectedPlants.length > 0
     });
+    this.updateBatchSelectionText(selectedPlants.length);
   },
   
   batchWatering: function() {
     if (this.data.selectedPlants.length === 0) {
-      wx.showToast({ title: '请选择植物', icon: 'none' });
+      wx.showToast({ title: this.translate('index', 'batchMode.noSelection'), icon: 'none' });
       return;
     }
     
     wx.showModal({
-      title: '批量浇水',
-      content: `确定要为选中的 ${this.data.selectedPlants.length} 株植物浇水吗？`,
+      title: this.translate('index', 'batchMode.confirmWateringTitle'),
+      content: this.translate('index', 'batchMode.confirmWateringContent', { count: this.data.selectedPlants.length }) + '',
       success: (res) => {
         if (res.confirm) {
           this.performBatchWatering();
@@ -168,13 +219,13 @@ Page({
   
   batchFertilizing: function() {
     if (this.data.selectedPlants.length === 0) {
-      wx.showToast({ title: '请选择植物', icon: 'none' });
+      wx.showToast({ title: this.translate('index', 'batchMode.noSelection'), icon: 'none' });
       return;
     }
     
     wx.showModal({
-      title: '批量施肥',
-      content: `确定要为选中的 ${this.data.selectedPlants.length} 株植物施肥吗？`,
+      title: this.translate('index', 'batchMode.confirmFertilizingTitle'),
+      content: this.translate('index', 'batchMode.confirmFertilizingContent', { count: this.data.selectedPlants.length }) + '',
       success: (res) => {
         if (res.confirm) {
           this.performBatchFertilizing();
@@ -184,7 +235,7 @@ Page({
   },
   
   performBatchWatering: function() {
-    wx.showLoading({ title: '正在批量浇水...' });
+    wx.showLoading({ title: this.translate('index', 'batchMode.processingWatering') });
     
     const plantList = wx.getStorageSync('plantList') || [];
     const today = new Date().toISOString().split('T')[0];
@@ -193,7 +244,7 @@ Page({
     
     const updatedList = plantList.map(plant => {
       if (this.data.selectedPlants.includes(plant.id)) {
-        selectedPlantNames.push(plant.aiResult.name || '未知植物');
+        selectedPlantNames.push(plant.aiResult.name || this.translate('common', 'unknownPlant'));
         plant.lastWateringDate = today;
         if (!plant.wateringHistory) {
           plant.wateringHistory = [];
@@ -221,7 +272,7 @@ Page({
     setTimeout(() => {
       wx.hideLoading();
       wx.showToast({ 
-        title: `已为 ${this.data.selectedPlants.length} 株植物浇水`, 
+        title: this.translate('index', 'batchMode.successWatering', { count: this.data.selectedPlants.length }), 
         icon: 'success',
         duration: 2000
       });
@@ -231,7 +282,7 @@ Page({
   },
   
   performBatchFertilizing: function() {
-    wx.showLoading({ title: '正在批量施肥...' });
+    wx.showLoading({ title: this.translate('index', 'batchMode.processingFertilizing') });
     
     const plantList = wx.getStorageSync('plantList') || [];
     const today = new Date().toISOString().split('T')[0];
@@ -240,7 +291,7 @@ Page({
     
     const updatedList = plantList.map(plant => {
       if (this.data.selectedPlants.includes(plant.id)) {
-        selectedPlantNames.push(plant.aiResult.name || '未知植物');
+        selectedPlantNames.push(plant.aiResult.name || this.translate('common', 'unknownPlant'));
         plant.lastFertilizingDate = today;
         if (!plant.fertilizingHistory) {
           plant.fertilizingHistory = [];
@@ -268,7 +319,7 @@ Page({
     setTimeout(() => {
       wx.hideLoading();
       wx.showToast({ 
-        title: `已为 ${this.data.selectedPlants.length} 株植物施肥`, 
+        title: this.translate('index', 'batchMode.successFertilizing', { count: this.data.selectedPlants.length }), 
         icon: 'success',
         duration: 2000
       });
@@ -283,6 +334,7 @@ Page({
       selectedPlants: [],
       showBatchActions: false
     });
+    this.updateBatchSelectionText(0);
   },
   
   // V0.3 批量操作历史记录
@@ -294,7 +346,7 @@ Page({
       count: plantNames.length,
       timestamp: timestamp,
       date: new Date(timestamp).toISOString().split('T')[0],
-      time: new Date(timestamp).toLocaleTimeString('zh-CN', { 
+      time: new Date(timestamp).toLocaleTimeString(i18n.getLocale(), { 
         hour: '2-digit', 
         minute: '2-digit' 
       })
@@ -314,19 +366,23 @@ Page({
     const batchHistory = wx.getStorageSync('batchOperationHistory') || [];
     if (batchHistory.length === 0) {
       wx.showToast({
-        title: '暂无批量操作记录',
+        title: this.translate('index', 'historyToastEmpty'),
         icon: 'none'
       });
       return;
     }
     
     const formattedHistory = batchHistory.map(item => {
-      const typeText = item.type === 'watering' ? '批量浇水' : '批量施肥';
-      const plantList = item.plantNames.join('、');
+      const typeText = item.type === 'watering' 
+        ? this.translate('index', 'batchMode.watering') 
+        : this.translate('index', 'batchMode.fertilizing');
+      const delimiter = this.translate('common', 'listDelimiter');
+      const plantList = item.plantNames.join(delimiter);
       return {
         ...item,
         typeText: typeText,
-        plantList: plantList
+        plantList: plantList,
+        plantCountLabel: this.translate('index', 'batchMode.plantCountLabel', { count: item.count })
       };
     });
     

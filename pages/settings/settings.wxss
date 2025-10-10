@@ -132,6 +132,27 @@
   border-bottom: none;
 }
 
+.setting-item.language {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.language-list {
+  width: 100%;
+}
+
+.language-item {
+  display: flex;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+.language-label {
+  margin-left: 20rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+
 .setting-label {
   font-size: 28rpx;
   color: #333;

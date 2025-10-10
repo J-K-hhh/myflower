@@ -1,5 +1,16 @@
 let API_KEY = '';
 let SECRET_KEY = '';
+const i18n = require('./i18n.js');
+
+function translate(namespace, keyPath, params = {}) {
+  try {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+  } catch (e) {}
+  return i18n.t(namespace, keyPath, params);
+}
 
 function getConfig() {
   if (!API_KEY || !SECRET_KEY) {
@@ -28,15 +39,16 @@ function getAccessToken() {
           app.globalData.baiduAi.accessToken = res.data.access_token;
           resolve(res.data.access_token);
         } else {
-          const errorMsg = res.data ? (res.data.error_description || res.data.error || '未知错误') : '响应数据为空';
-          reject(new Error(`获取 access_token 失败: ${errorMsg}`));
+          const unknown = translate('models', 'errors.unknown');
+          const errorMsg = res.data ? (res.data.error_description || res.data.error || unknown) : translate('models', 'errors.responseEmpty');
+          reject(new Error(translate('models', 'errors.accessTokenFailed', { message: errorMsg })));
         }
       },
       fail: (err) => {
         if (err.errMsg && err.errMsg.includes('域名不在白名单')) {
-          reject(new Error('域名不在白名单，请在微信小程序后台配置服务器域名：https://aip.baidubce.com'));
+          reject(new Error(translate('models', 'errors.whitelistRequired')));
         } else {
-          reject(new Error(`网络请求失败: ${err.errMsg || '未知错误'}`));
+          reject(new Error(translate('models', 'errors.networkFailed', { message: err.errMsg || translate('models', 'errors.unknown') })));
         }
       }
     });
@@ -70,24 +82,25 @@ function recognizePlant(filePath) {
                   };
                   resolve(plantInfo);
                 } else {
-                  reject(new Error('植物识别失败，请尝试更清晰的图片'));
+                  reject(new Error(translate('models', 'errors.baiduRecognitionFailed')));
                 }
               } else {
-                const errorMsg = apiRes.data ? (apiRes.data.error_msg || apiRes.data.error || '未知错误') : '响应数据为空';
-                reject(new Error(`植物识别失败: ${errorMsg}`));
+                const unknown = translate('models', 'errors.unknown');
+                const errorMsg = apiRes.data ? (apiRes.data.error_msg || apiRes.data.error || unknown) : translate('models', 'errors.responseEmpty');
+                reject(new Error(`${translate('models', 'errors.baiduRecognitionFailed')} (${errorMsg})`));
               }
             },
             fail: (apiErr) => {
               if (apiErr.errMsg && apiErr.errMsg.includes('域名不在白名单')) {
-                reject(new Error('域名不在白名单，请在微信小程序后台配置服务器域名：https://aip.baidubce.com'));
+                reject(new Error(translate('models', 'errors.whitelistRequired')));
               } else {
-                reject(new Error(`网络请求失败: ${apiErr.errMsg || '未知错误'}`));
+                reject(new Error(translate('models', 'errors.networkFailed', { message: apiErr.errMsg || translate('models', 'errors.unknown') })));
               }
             }
           });
         },
         fail: (fsErr) => {
-          reject(new Error(`图片读取失败: ${fsErr.errMsg || '未知错误'}`));
+          reject(new Error(translate('models', 'errors.imageReadFailed', { message: fsErr.errMsg || translate('models', 'errors.unknown') })));
         }
       });
     }).catch(tokenErr => {
@@ -127,7 +140,7 @@ function extractWateringInfo(description) {
       return description.substring(start, end).trim();
     }
   }
-  return '请根据土壤湿度适量浇水';
+  return translate('models', 'defaults.wateringSoil');
 }
 
 function extractLightingInfo(description) {
@@ -140,7 +153,7 @@ function extractLightingInfo(description) {
       return description.substring(start, end).trim();
     }
   }
-  return '需要适当的光照，避免强光直射';
+  return translate('models', 'defaults.lightingAvoid');
 }
 
 function extractTemperatureInfo(description) {
@@ -153,7 +166,7 @@ function extractTemperatureInfo(description) {
       return description.substring(start, end).trim();
     }
   }
-  return '适宜温度15-25°C';
+  return translate('models', 'defaults.temperatureRange');
 }
 
 function extractHumidityInfo(description) {
@@ -166,7 +179,7 @@ function extractHumidityInfo(description) {
       return description.substring(start, end).trim();
     }
   }
-  return '保持适当湿度';
+  return translate('models', 'defaults.humidity');
 }
 
 function extractFertilizingInfo(description) {
@@ -179,14 +192,14 @@ function extractFertilizingInfo(description) {
       return description.substring(start, end).trim();
     }
   }
-  return '定期施肥，注意浓度';
+  return translate('models', 'defaults.fertilizing');
 }
 
 function testApiConnection() {
   return new Promise((resolve, reject) => {
     getConfig();
     if (!API_KEY || !SECRET_KEY) {
-      reject(new Error('API密钥未正确配置'));
+      reject(new Error(translate('models', 'errors.apiKeyMisconfigured')));
       return;
     }
     getAccessToken()

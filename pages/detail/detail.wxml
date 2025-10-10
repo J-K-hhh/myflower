@@ -13,8 +13,8 @@
             </view>
             <!-- 图片操作按钮 - 与日期在同一行 -->
             <view class="image-actions-inline" wx:if="{{plant.images.length > 1 && !readonlyShareView}}">
-              <text class="action-btn-inline" bindtap="setCoverImage" data-index="{{index}}">设为题图</text>
-              <text class="action-btn-inline delete" bindtap="deleteImage" data-index="{{index}}">删除</text>
+              <text class="action-btn-inline" bindtap="setCoverImage" data-index="{{index}}">{{i18n.image.setCover}}</text>
+              <text class="action-btn-inline delete" bindtap="deleteImage" data-index="{{index}}">{{i18n.image.delete}}</text>
             </view>
           </view>
           <!-- 编辑备忘模式 - 仅在非分享模式下显示 -->
@@ -22,12 +22,12 @@
             <textarea class="memo-edit-input" 
                       value="{{editingMemo}}" 
                       bindinput="onMemoInput" 
-                      placeholder="添加备忘信息..."
+                      placeholder="{{i18n.image.memoPlaceholder}}"
                       maxlength="100"
                       auto-height="true"></textarea>
             <view class="memo-edit-actions">
-              <text class="memo-btn save" bindtap="saveImageMemo">保存</text>
-              <text class="memo-btn cancel" bindtap="cancelMemoEdit">取消</text>
+              <text class="memo-btn save" bindtap="saveImageMemo">{{i18n.image.memoSave}}</text>
+              <text class="memo-btn cancel" bindtap="cancelMemoEdit">{{i18n.image.memoCancel}}</text>
             </view>
           </view>
           <!-- 显示备忘模式 -->
@@ -42,7 +42,7 @@
                 class="add-memo-btn" 
                 bindtap="editImageMemo" 
                 data-index="{{index}}">
-            📝 添加备忘
+            📝 {{i18n.image.addMemo}}
           </view>
         </view>
         <!-- V0.3 图片顺序调整按钮 - 仅在非分享模式下显示 -->
@@ -50,7 +50,7 @@
           <text class="order-btn" wx:if="{{index > 0}}" bindtap="moveImageUp" data-index="{{index}}">⬆️</text>
           <text class="order-btn" wx:if="{{index < plant.images.length - 1}}" bindtap="moveImageDown" data-index="{{index}}">⬇️</text>
         </view>
-        <view class="cover-badge" wx:if="{{index === 0}}">题图</view>
+        <view class="cover-badge" wx:if="{{index === 0}}">{{i18n.image.coverBadge}}</view>
       </view>
     </swiper-item>
   </swiper>
@@ -58,8 +58,8 @@
   <view class="content-box">
     <!-- 识别名称 -->
     <view class="plant-title-container">
-      <text class="plant-title" wx:if="{{!isEditingName}}">{{plant.aiResult.name || '未知植物'}}</text>
-      <input class="plant-title-edit" wx:if="{{isEditingName && !readonlyShareView}}" value="{{plant.aiResult.name || '未知植物'}}" bindinput="onNameInput" bindblur="saveName" focus="{{isEditingName}}" />
+      <text class="plant-title" wx:if="{{!isEditingName}}">{{plant.aiResult.name || i18nCommon.unknownPlant}}</text>
+      <input class="plant-title-edit" wx:if="{{isEditingName && !readonlyShareView}}" value="{{plant.aiResult.name || i18nCommon.unknownPlant}}" bindinput="onNameInput" bindblur="saveName" focus="{{isEditingName}}" />
       <text class="edit-icon" wx:if="{{!readonlyShareView}}" bindtap="toggleNameEdit">{{isEditingName ? '✓' : '✏️'}}</text>
     </view>
     
@@ -68,40 +68,40 @@
       <view class="info-card">
         <text class="info-icon">📅</text>
         <view class="info-text">
-          <view class="info-label">记录时间</view>
+          <view class="info-label">{{i18n.info.recordedAt}}</view>
           <view class="info-value">{{plant.createDate}}</view>
         </view>
       </view>
       <view class="info-card" bindtap="viewWateringHistory">
         <text class="info-icon">💧</text>
         <view class="info-text">
-          <view class="info-label">浇水记录</view>
-          <view class="info-value">{{plant.wateringHistory && plant.wateringHistory.length > 0 ? plant.wateringHistory.length + '次记录' : '暂无记录'}}</view>
+          <view class="info-label">{{i18n.history.titleWatering}}</view>
+          <view class="info-value">{{plant.wateringHistory && plant.wateringHistory.length > 0 ? plant.wateringHistory.length + i18n.history.recordUnit : i18n.history.none}}</view>
         </view>
-        <text class="history-btn" wx:if="{{plant.wateringHistory && plant.wateringHistory.length > 0}}">查看详情</text>
+        <text class="history-btn" wx:if="{{plant.wateringHistory && plant.wateringHistory.length > 0}}">{{i18n.history.viewDetails}}</text>
       </view>
       <view class="info-card" bindtap="viewFertilizingHistory">
         <text class="info-icon">🌱</text>
         <view class="info-text">
-          <view class="info-label">施肥记录</view>
-          <view class="info-value">{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0 ? plant.fertilizingHistory.length + '次记录' : '暂无记录'}}</view>
+          <view class="info-label">{{i18n.history.titleFertilizing}}</view>
+          <view class="info-value">{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0 ? plant.fertilizingHistory.length + i18n.history.recordUnit : i18n.history.none}}</view>
         </view>
-        <text class="history-btn" wx:if="{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0}}">查看详情</text>
+        <text class="history-btn" wx:if="{{plant.fertilizingHistory && plant.fertilizingHistory.length > 0}}">{{i18n.history.viewDetails}}</text>
       </view>
       
       <!-- 操作按钮 - 仅在非分享模式下显示，移到施肥记录后面 -->
       <view class="action-buttons" wx:if="{{!readonlyShareView}}">
-        <button class="action-btn" bindtap="updateWatering">💧 更新浇水</button>
-        <button class="action-btn" bindtap="updateFertilizing">🌱 更新施肥</button>
-        <button class="action-btn" bindtap="takePhoto">📷 为它拍照</button>
+        <button class="action-btn" bindtap="updateWatering">{{i18n.history.updateWatering}}</button>
+        <button class="action-btn" bindtap="updateFertilizing">{{i18n.history.updateFertilizing}}</button>
+        <button class="action-btn" bindtap="takePhoto">{{i18n.history.takePhoto}}</button>
       </view>
       <view class="info-card" bindtap="viewHealthAnalyses" wx:if="{{selectedModel === 'qwen-vl'}}">
         <text class="info-icon">🏥</text>
         <view class="info-text">
-          <view class="info-label">健康分析</view>
-          <view class="info-value">{{plant.healthAnalyses && plant.healthAnalyses.length > 0 ? plant.healthAnalyses.length + '次分析' : '暂无分析'}}</view>
+          <view class="info-label">{{i18n.info.healthAnalysis}}</view>
+          <view class="info-value">{{plant.healthAnalyses && plant.healthAnalyses.length > 0 ? plant.healthAnalyses.length + i18n.history.analysisUnit : i18n.info.noAnalysis}}</view>
         </view>
-        <text class="history-btn" wx:if="{{plant.healthAnalyses && plant.healthAnalyses.length > 0}}">查看详情</text>
+        <text class="history-btn" wx:if="{{plant.healthAnalyses && plant.healthAnalyses.length > 0}}">{{i18n.history.viewDetails}}</text>
       </view>
     </view>
 
@@ -109,52 +109,52 @@
     <view class="baike-section" wx:if="{{plant.aiResult.baike.description}}">
       <view class="section-title">
         <text class="title-icon">📚</text>
-        <text>养护小百科</text>
+        <text>{{i18n.baike.title}}</text>
       </view>
       <view class="baike-description">{{plant.aiResult.baike.description}}</view>
-      <view wx:if="{{plant.aiResult.baike.baike_url}}" class="baike-link" bindtap="goToBaike">查看更多信息</view>
+      <view wx:if="{{plant.aiResult.baike.baike_url}}" class="baike-link" bindtap="goToBaike">{{i18n.baike.viewMore}}</view>
     </view>
 
     <!-- 通义千问VL的详细结果 -->
     <view class="qwen-detail-section" wx:if="{{plant.aiResult.model === 'qwen-vl'}}">
       <view class="section-title">
         <text class="title-icon">🤖</text>
-        <text>AI智能分析</text>
+        <text>{{i18n.qwen.sectionTitle}}</text>
       </view>
       
       <!-- 植物学名 -->
       <view class="qwen-field" wx:if="{{plant.aiResult.scientificName}}">
-        <view class="qwen-field-title">🌿 学名</view>
+        <view class="qwen-field-title">{{i18n.qwen.scientificName}}</view>
         <view class="qwen-field-content">{{plant.aiResult.scientificName}}</view>
       </view>
       
       <!-- 浇水tips -->
       <view class="qwen-field" wx:if="{{plant.aiResult.wateringTips}}">
-        <view class="qwen-field-title">💧 浇水tips</view>
+        <view class="qwen-field-title">{{i18n.qwen.watering}}</view>
         <view class="qwen-field-content">{{plant.aiResult.wateringTips}}</view>
       </view>
       
       <!-- 光照tips -->
       <view class="qwen-field" wx:if="{{plant.aiResult.lightingTips}}">
-        <view class="qwen-field-title">☀️ 光照tips</view>
+        <view class="qwen-field-title">{{i18n.qwen.lighting}}</view>
         <view class="qwen-field-content">{{plant.aiResult.lightingTips}}</view>
       </view>
       
       <!-- 健康信息 -->
       <view class="qwen-field" wx:if="{{plant.aiResult.healthInfo}}">
-        <view class="qwen-field-title">🏥 健康信息</view>
+        <view class="qwen-field-title">{{i18n.qwen.health}}</view>
         <view class="qwen-field-content">{{plant.aiResult.healthInfo}}</view>
       </view>
       
       <!-- 综合养护tips -->
       <view class="qwen-field" wx:if="{{plant.aiResult.careTips}}">
-        <view class="qwen-field-title">🌱 综合养护tips</view>
+        <view class="qwen-field-title">{{i18n.qwen.care}}</view>
         <view class="qwen-field-content">{{plant.aiResult.careTips}}</view>
       </view>
       
       <!-- 小知识 -->
       <view class="qwen-field" wx:if="{{plant.aiResult.funFacts}}">
-        <view class="qwen-field-title">💡 小知识</view>
+        <view class="qwen-field-title">{{i18n.qwen.knowledge}}</view>
         <view class="qwen-field-content">{{plant.aiResult.funFacts}}</view>
       </view>
     </view>
@@ -163,41 +163,41 @@
     <view class="care-tips-section" wx:if="{{plant.aiResult.careTips && plant.aiResult.model !== 'qwen-vl'}}">
       <view class="section-title">
         <text class="title-icon">💡</text>
-        <text>养护要点</text>
+        <text>{{i18n.care.sectionTitle}}</text>
       </view>
       <view class="care-tips">
         <view class="tip-item" wx:if="{{plant.aiResult.careTips.watering}}">
           <text class="tip-icon">💧</text>
           <view class="tip-content">
-            <text class="tip-label">浇水</text>
+            <text class="tip-label">{{i18n.care.watering}}</text>
             <text class="tip-text">{{plant.aiResult.careTips.watering}}</text>
           </view>
         </view>
         <view class="tip-item" wx:if="{{plant.aiResult.careTips.lighting}}">
           <text class="tip-icon">☀️</text>
           <view class="tip-content">
-            <text class="tip-label">光照</text>
+            <text class="tip-label">{{i18n.care.lighting}}</text>
             <text class="tip-text">{{plant.aiResult.careTips.lighting}}</text>
           </view>
         </view>
         <view class="tip-item" wx:if="{{plant.aiResult.careTips.temperature}}">
           <text class="tip-icon">🌡️</text>
           <view class="tip-content">
-            <text class="tip-label">温度</text>
+            <text class="tip-label">{{i18n.care.temperature}}</text>
             <text class="tip-text">{{plant.aiResult.careTips.temperature}}</text>
           </view>
         </view>
         <view class="tip-item" wx:if="{{plant.aiResult.careTips.humidity}}">
           <text class="tip-icon">💨</text>
           <view class="tip-content">
-            <text class="tip-label">湿度</text>
+            <text class="tip-label">{{i18n.care.humidity}}</text>
             <text class="tip-text">{{plant.aiResult.careTips.humidity}}</text>
           </view>
         </view>
         <view class="tip-item" wx:if="{{plant.aiResult.careTips.fertilizing}}">
           <text class="tip-icon">🌱</text>
           <view class="tip-content">
-            <text class="tip-label">施肥</text>
+            <text class="tip-label">{{i18n.care.fertilizing}}</text>
             <text class="tip-text">{{plant.aiResult.careTips.fertilizing}}</text>
           </view>
         </view>
@@ -207,7 +207,7 @@
 
   <!-- 删除按钮 - 仅在非分享模式下显示，放在页面最下方 -->
   <view class="delete-section" wx:if="{{!readonlyShareView}}">
-    <button class="delete-plant-btn" bindtap="deletePlant">🗑️ 删除绿植</button>
+    <button class="delete-plant-btn" bindtap="deletePlant">🗑️ {{i18n.buttons.deletePlant}}</button>
   </view>
 
   <!-- 历史记录弹窗 -->
@@ -226,7 +226,7 @@
         </view>
         <view class="history-empty" wx:if="{{historyModalData.length === 0}}">
           <text class="empty-icon">{{historyModalIcon}}</text>
-          <text class="empty-text">暂无记录</text>
+          <text class="empty-text">{{i18n.history.none}}</text>
         </view>
       </scroll-view>
     </view>

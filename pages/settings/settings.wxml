@@ -3,7 +3,7 @@
   <!-- 背景图片 -->
   <image class="bg-image" src="/images/add-bg.png" mode="aspectFill"></image>
   <view class="section">
-    <view class="section-title">模型设置</view>
+    <view class="section-title">{{i18n.sections.model}}</view>
     <radio-group bindchange="onModelChange">
       <view class="model-list">
         <view class="model-item" wx:for="{{models}}" wx:key="id">
@@ -20,14 +20,14 @@
       </view>
     </radio-group>
     <view class="test-button" bindtap="testModelConnection">
-      <text>测试模型连接</text>
+      <text>{{i18n.buttons.testModel}}</text>
     </view>
   </view>
 
   <view class="section">
-    <view class="section-title">存储限制</view>
+    <view class="section-title">{{i18n.sections.storage}}</view>
     <view class="setting-item">
-      <view class="setting-label">每株植物最多保存照片数</view>
+      <view class="setting-label">{{i18n.storage.maxPhotos}}</view>
       <input 
         class="setting-input" 
         type="number" 
@@ -37,7 +37,7 @@
       />
     </view>
     <view class="setting-item">
-      <view class="setting-label">浇水/施肥记录条数</view>
+      <view class="setting-label">{{i18n.storage.maxRecords}}</view>
       <input 
         class="setting-input" 
         type="number" 
@@ -49,31 +49,46 @@
   </view>
 
   <view class="section">
-    <view class="section-title">位置服务</view>
+    <view class="section-title">{{i18n.sections.language}}</view>
+    <view class="setting-item language">
+      <view class="setting-label">{{i18n.language.description}}</view>
+      <radio-group bindchange="onLanguageChange">
+        <view class="language-list">
+          <view class="language-item" wx:for="{{languageOptions}}" wx:key="value">
+            <radio value="{{item.value}}" checked="{{language === item.value}}" />
+            <text class="language-label">{{item.label}}</text>
+          </view>
+        </view>
+      </radio-group>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{i18n.sections.location}}</view>
     <view class="setting-item">
-      <view class="setting-label">位置权限</view>
+      <view class="setting-label">{{i18n.location.permission}}</view>
       <view class="setting-value">
-        <text wx:if="{{locationEnabled}}">已开启</text>
-        <text wx:else class="link-text" bindtap="requestLocationPermission">点击开启</text>
+        <text wx:if="{{locationEnabled}}">{{i18n.location.enabled}}</text>
+        <text wx:else class="link-text" bindtap="requestLocationPermission">{{i18n.location.tapToEnable}}</text>
       </view>
     </view>
     <view class="setting-item">
-      <view class="setting-label">当前位置</view>
+      <view class="setting-label">{{i18n.location.currentLocation}}</view>
       <view class="setting-value">
         <text wx:if="{{currentLocation}}">{{currentLocation.latitude}}, {{currentLocation.longitude}}</text>
-        <text wx:else class="location-placeholder">未获取位置</text>
+        <text wx:else class="location-placeholder">{{i18n.location.locationNotAvailable}}</text>
       </view>
     </view>
   </view>
 
   <view class="section">
-    <view class="section-title">数据管理</view>
+    <view class="section-title">{{i18n.sections.data}}</view>
     <view class="danger-button" bindtap="clearAllData">
-      <text>清除所有数据</text>
+      <text>{{i18n.buttons.clearData}}</text>
     </view>
   </view>
 
   <view class="save-button" bindtap="saveSettings">
-    <text>保存设置</text>
+    <text>{{i18n.buttons.saveSettings}}</text>
   </view>
 </view>

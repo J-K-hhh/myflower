@@ -1,4 +1,15 @@
 const baiduAi = require('./baidu_ai.js');
+const i18n = require('./i18n.js');
+
+function translate(namespace, keyPath, params = {}) {
+  try {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+  } catch (e) {}
+  return i18n.t(namespace, keyPath, params);
+}
 
 // 模型配置
 const MODEL_CONFIGS = {
@@ -340,7 +351,7 @@ function parseAIResponse(content) {
   
   // 如果没有提取到具体信息，使用默认值
   if (!result.name) {
-    result.name = '未知植物';
+    result.name = translate('common', 'unknownPlant');
     console.log('使用默认植物名称');
   }
   if (!result.scientificName) {
@@ -348,19 +359,19 @@ function parseAIResponse(content) {
     console.log('使用默认学名');
   }
   if (!result.wateringTips) {
-    result.wateringTips = '请根据植物特性适量浇水';
+    result.wateringTips = translate('models', 'defaults.watering');
     console.log('使用默认浇水信息');
   }
   if (!result.lightingTips) {
-    result.lightingTips = '需要适当的光照条件';
+    result.lightingTips = translate('models', 'defaults.lighting');
     console.log('使用默认光照信息');
   }
   if (!result.healthInfo) {
-    result.healthInfo = '请定期观察植物状态';
+    result.healthInfo = translate('models', 'defaults.health');
     console.log('使用默认健康信息');
   }
   if (!result.careTips) {
-    result.careTips = '请根据植物需求进行养护';
+    result.careTips = translate('models', 'defaults.care');
     console.log('使用默认养护信息');
   }
   if (!result.funFacts) {
@@ -404,13 +415,13 @@ function sendApiRequest(config, requestData) {
             } else {
           console.log('API请求失败，状态码:', res.statusCode);
           console.log('响应数据:', res.data);
-          reject(new Error(`API请求失败: ${res.statusCode}`));
+          reject(new Error(translate('models', 'errors.apiRequestFailed', { code: res.statusCode })));
             }
           },
           fail: (err) => {
         console.log('=== API请求失败 ===');
         console.log('错误信息:', err);
-        reject(new Error(`网络请求失败: ${err.errMsg}`));
+        reject(new Error(translate('models', 'errors.networkFailed', { message: err.errMsg })));
           }
     });
   });
@@ -432,7 +443,7 @@ function recognizePlant(filePath, location = null, onProgress = null) {
   } else if (model === 'gemini-pro-vision') {
     return recognizePlantWithGemini(filePath, location, onProgress);
   } else {
-    return Promise.reject(new Error('未知的模型类型'));
+    return Promise.reject(new Error(translate('models', 'errors.unknownModel')));
   }
 }
 
@@ -443,7 +454,7 @@ function recognizePlantWithQwenVL(filePath, location = null, onProgress = null) 
   return new Promise((resolve, reject) => {
     const config = getModelConfig();
     
-    if (onProgress) onProgress('正在压缩图片...');
+    if (onProgress) onProgress(translate('models', 'progress.compressing'));
     compressImage(filePath, 0.8)
       .then((compressedFilePath) => {
     const fileSystemManager = wx.getFileSystemManager();
@@ -458,7 +469,7 @@ function recognizePlantWithQwenVL(filePath, location = null, onProgress = null) 
               const prompt = '请直接分析这张图片中的植物，不要提到Base64编码。请告诉我：1. 植物名称 2. 学名 3. 主要特征 4. 养护建议';
               const requestData = buildQwenVLRequest(prompt, imageBase64);
               
-        if (onProgress) onProgress('正在发送请求到AI模型...');
+        if (onProgress) onProgress(translate('models', 'progress.sending'));
 
               sendApiRequest(config, requestData)
                 .then((apiRes) => {
@@ -466,12 +477,12 @@ function recognizePlantWithQwenVL(filePath, location = null, onProgress = null) 
                   const parsedInfo = parseAIResponse(content);
                   
                   const result = {
-                    name: parsedInfo.name || '未知植物',
+                    name: parsedInfo.name || translate('common', 'unknownPlant'),
                     scientificName: parsedInfo.scientificName || '',
-                    wateringTips: parsedInfo.wateringTips || '请根据植物特性适量浇水',
-                    lightingTips: parsedInfo.lightingTips || '需要适当的光照条件',
-                    healthInfo: parsedInfo.healthInfo || '请定期观察植物状态',
-                    careTips: parsedInfo.careTips || '请根据植物需求进行养护',
+                    wateringTips: parsedInfo.wateringTips || translate('models', 'defaults.watering'),
+                    lightingTips: parsedInfo.lightingTips || translate('models', 'defaults.lighting'),
+                    healthInfo: parsedInfo.healthInfo || translate('models', 'defaults.health'),
+                    careTips: parsedInfo.careTips || translate('models', 'defaults.care'),
                     funFacts: parsedInfo.funFacts || '',
                     model: 'qwen-vl',
                     rawResponse: content
@@ -512,11 +523,11 @@ function recognizePlantWithGemini(filePath, location = null, onProgress = null) 
     const config = getModelConfig('gemini-pro-vision');
     
     if (!config.apiKey) {
-      reject(new Error('Gemini API Key未配置'));
+      reject(new Error(translate('models', 'errors.geminiKeyMissing')));
       return;
     }
     
-    if (onProgress) onProgress('正在压缩图片...');
+    if (onProgress) onProgress(translate('models', 'progress.compressing'));
     compressImage(filePath, 0.8)
       .then((compressedFilePath) => {
         const fileSystemManager = wx.getFileSystemManager();
@@ -531,7 +542,7 @@ function recognizePlantWithGemini(filePath, location = null, onProgress = null) 
               const prompt = '请直接分析这张图片中的植物，不要提到Base64编码。请告诉我：1. 植物名称 2. 学名 3. 主要特征 4. 养护建议';
               const requestData = buildGeminiRequest(prompt, imageBase64);
               
-              if (onProgress) onProgress('正在发送请求到AI模型...');
+              if (onProgress) onProgress(translate('models', 'progress.sending'));
               
               sendApiRequest(config, requestData)
                 .then((apiRes) => {
@@ -539,12 +550,12 @@ function recognizePlantWithGemini(filePath, location = null, onProgress = null) 
                   const parsedInfo = parseAIResponse(content);
   
   const result = {
-                    name: parsedInfo.name || '未知植物',
+                    name: parsedInfo.name || translate('common', 'unknownPlant'),
                     scientificName: parsedInfo.scientificName || '',
-                    wateringTips: parsedInfo.wateringTips || '请根据植物特性适量浇水',
-                    lightingTips: parsedInfo.lightingTips || '需要适当的光照条件',
-                    healthInfo: parsedInfo.healthInfo || '请定期观察植物状态',
-                    careTips: parsedInfo.careTips || '请根据植物需求进行养护',
+                    wateringTips: parsedInfo.wateringTips || translate('models', 'defaults.watering'),
+                    lightingTips: parsedInfo.lightingTips || translate('models', 'defaults.lighting'),
+                    healthInfo: parsedInfo.healthInfo || translate('models', 'defaults.health'),
+                    careTips: parsedInfo.careTips || translate('models', 'defaults.care'),
                     funFacts: parsedInfo.funFacts || '',
                     model: 'gemini',
     rawResponse: content
@@ -575,7 +586,7 @@ function analyzePlantHealth(filePath, location = null) {
     return recognizePlant(filePath, location).then(result => {
       return {
         ...result,
-        healthAnalysis: '请使用千问VL模型获得详细的健康分析',
+        healthAnalysis: translate('models', 'defaults.healthAnalysis'),
         model: model
       };
     });

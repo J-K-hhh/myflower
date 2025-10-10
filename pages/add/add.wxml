@@ -8,26 +8,26 @@
     <view class="image-uploader" bindtap="chooseImage">
       <image wx:if="{{tempImagePath}}" class="preview-image" src="{{tempImagePath}}" mode="aspectFill"></image>
       <view wx:else class="uploader-placeholder">
-        <text class="uploader-title">添加新绿植</text>
+        <text class="uploader-title">{{i18n.uploader.title}}</text>
         <text class="camera-icon">🌱</text>
-        <text class="uploader-text">为您的绿植拍一张美照吧 📷</text>
+        <text class="uploader-text">{{i18n.uploader.subtitle}}</text>
       </view>
     </view>
 
     <!-- 模型和位置信息 -->
     <view class="section" wx:if="{{tempImagePath}}">
-      <view class="section-title">识别信息</view>
+      <view class="section-title">{{i18n.sections.recognitionInfo}}</view>
       <view class="info-card">
         <view class="info-item">
-          <text class="info-label">当前模型：</text>
-          <text class="info-value">{{selectedModel === 'baidu' ? '百度AI植物识别' : '通义千问VL'}}</text>
+          <text class="info-label">{{i18n.info.currentModel}}</text>
+          <text class="info-value">{{selectedModel === 'baidu' ? i18n.info.modelBaidu : i18n.info.modelQwen}}</text>
         </view>
         <view class="info-item">
-          <text class="info-label">位置服务：</text>
-          <text class="info-value">{{locationEnabled ? '已开启' : '未开启'}}</text>
+          <text class="info-label">{{i18n.info.locationService}}</text>
+          <text class="info-value">{{locationEnabled ? i18n.info.locationEnabled : i18n.info.locationDisabled}}</text>
         </view>
         <view class="info-item" wx:if="{{currentLocation}}">
-          <text class="info-label">当前位置：</text>
+          <text class="info-label">{{i18n.info.currentLocation}}</text>
           <text class="info-value">{{currentLocation.latitude}}, {{currentLocation.longitude}}</text>
         </view>
       </view>
@@ -36,12 +36,12 @@
     <!-- 2. AI 识别结果展示 -->
     <view class="section" wx:if="{{isLoading}}">
       <view class="loading-container">
-        <custom-loading text="正在识别中..."></custom-loading>
+        <custom-loading text="{{i18n.loading.recognizing}}"></custom-loading>
       </view>
     </view>
 
     <view class="section" wx:if="{{aiResult.name}}">
-      <view class="section-title">识别结果</view>
+      <view class="section-title">{{i18n.sections.recognitionResult}}</view>
       <view class="ai-result-card">
         <view class="plant-name">{{aiResult.name}}</view>
         <view class="plant-scientific" wx:if="{{aiResult.scientificName}}">{{aiResult.scientificName}}</view>
@@ -50,30 +50,30 @@
         <!-- 通义千问VL的详细结果 -->
         <view class="qwen-result" wx:if="{{aiResult.model === 'qwen-vl'}}">
           <view class="qwen-section" wx:if="{{aiResult.wateringTips}}">
-            <view class="qwen-title">💧 浇水tips</view>
+            <view class="qwen-title">{{i18n.qwen.watering}}</view>
             <view class="qwen-content">{{aiResult.wateringTips}}</view>
           </view>
           <view class="qwen-section" wx:if="{{aiResult.lightingTips}}">
-            <view class="qwen-title">☀️ 光照tips</view>
+            <view class="qwen-title">{{i18n.qwen.lighting}}</view>
             <view class="qwen-content">{{aiResult.lightingTips}}</view>
           </view>
           <view class="qwen-section" wx:if="{{aiResult.healthInfo}}">
-            <view class="qwen-title">🏥 健康信息</view>
+            <view class="qwen-title">{{i18n.qwen.health}}</view>
             <view class="qwen-content">{{aiResult.healthInfo}}</view>
           </view>
           <view class="qwen-section" wx:if="{{aiResult.careTips}}">
-            <view class="qwen-title">🌱 综合养护tips</view>
+            <view class="qwen-title">{{i18n.qwen.care}}</view>
             <view class="qwen-content">{{aiResult.careTips}}</view>
           </view>
           <view class="qwen-section" wx:if="{{aiResult.funFacts}}">
-            <view class="qwen-title">💡 小知识</view>
+            <view class="qwen-title">{{i18n.qwen.knowledge}}</view>
             <view class="qwen-content">{{aiResult.funFacts}}</view>
           </view>
         </view>
         
         <!-- 百度AI的养护要点 -->
         <view class="care-tips" wx:if="{{aiResult.careTips && aiResult.model !== 'qwen-vl'}}">
-          <view class="tips-title">养护要点</view>
+          <view class="tips-title">{{i18n.baiduCare.title}}</view>
           <view class="tip-item" wx:if="{{aiResult.careTips.watering}}">
             <text class="tip-icon">💧</text>
             <text class="tip-text">{{aiResult.careTips.watering}}</text>
@@ -100,29 +100,29 @@
 
     <!-- 3. 表单输入项 -->
     <view class="section">
-      <view class="section-title">养护信息</view>
+      <view class="section-title">{{i18n.sections.careInfo}}</view>
       <view class="form-group">
         <view class="form-item">
           <text class="item-label">
             <text class="label-icon">💧</text>
-            上次浇水
+            {{i18n.form.lastWatering}}
           </text>
           <picker mode="date" value="{{wateringDate}}" bindchange="bindWateringDateChange">
             <view class="picker {{wateringDate ? '' : 'picker-empty'}}">
               <text class="picker-icon">📅</text>
-              {{wateringDate || '请选择日期'}}
+              {{wateringDate || i18n.form.selectDate}}
             </view>
           </picker>
         </view>
         <view class="form-item">
           <text class="item-label">
             <text class="label-icon">🌱</text>
-            上次施肥
+            {{i18n.form.lastFertilizing}}
           </text>
           <picker mode="date" value="{{fertilizingDate}}" bindchange="bindFertilizingDateChange">
             <view class="picker {{fertilizingDate ? '' : 'picker-empty'}}">
               <text class="picker-icon">📅</text>
-              {{fertilizingDate || '请选择日期'}}
+              {{fertilizingDate || i18n.form.selectDate}}
             </view>
           </picker>
         </view>
@@ -131,7 +131,7 @@
 
     <!-- 4. 提交按钮 -->
     <button class="save-button" form-type="submit" type="primary" disabled="{{!tempImagePath || isLoading}}">
-      {{isLoading ? '识别中...' : '🌱 种下绿植'}}
+      {{isLoading ? i18n.buttons.recognizing : i18n.buttons.save}}
     </button>
   </form>
 </view>

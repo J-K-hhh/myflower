@@ -1,5 +1,6 @@
 const modelUtils = require('../../utils/model_utils.js');
 const cloudUtils = require('../../utils/cloud_utils.js');
+const i18n = require('../../utils/i18n.js');
 
 Page({
   data: {
@@ -20,9 +21,13 @@ Page({
     maxRecords: 50,
     // V0.3 图片备忘功能
     editingMemoIndex: -1,
-    editingMemo: ''
+    editingMemo: '',
+    i18n: i18n.getSection('detail'),
+    i18nCommon: i18n.getSection('common'),
+    language: i18n.getLanguage()
   },
   onLoad: function (options) {
+    this.updateTranslations();
     // 支持两种入口：本地 id 或 分享 owner+pid
     const { id, owner, pid } = options || {};
     this.loadSettings();
@@ -60,7 +65,7 @@ Page({
     }
 
     wx.showToast({
-      title: '缺少植物ID',
+      title: this.translate('detail', 'errors.missingId'),
       icon: 'error',
       complete: () => wx.navigateBack()
     });
@@ -68,9 +73,41 @@ Page({
 
   onShow: function() {
     // 每次显示页面时重新加载设置，确保使用最新的模型选择
+    this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
     this.setRandomTitle();
+  },
+
+  updateTranslations: function() {
+    const app = getApp();
+    const language = app && typeof app.getLanguage === 'function' ? app.getLanguage() : i18n.getLanguage();
+    this.setData({
+      i18n: i18n.getSection('detail', language),
+      i18nCommon: i18n.getSection('common', language),
+      language: language
+    });
+    if (this.data.showHistoryModal) {
+      let historyTitle = this.data.historyModalTitle;
+      const icon = this.data.historyModalIcon;
+      if (icon === '💧') {
+        historyTitle = this.translate('detail', 'history.titleWatering');
+      } else if (icon === '🌱') {
+        historyTitle = this.translate('detail', 'history.titleFertilizing');
+      } else if (icon === '🏥') {
+        historyTitle = this.translate('detail', 'history.titleHealth');
+      }
+      this.setData({ historyModalTitle: historyTitle });
+    }
+  },
+
+  translate: function(namespace, keyPath, params = {}) {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+    const language = this.data.language || i18n.getLanguage();
+    return i18n.t(namespace, keyPath, params, language);
   },
   
   setRandomTitle: function() {
@@ -149,7 +186,7 @@ Page({
       });
     } else {
       wx.showToast({
-        title: '找不到该植物信息',
+        title: this.translate('detail', 'errors.plantNotFound'),
         icon: 'error',
         complete: () => wx.navigateBack()
       });
@@ -160,12 +197,12 @@ Page({
   updatePageTitle: function(plant, isShared) {
     if (!plant || !plant.aiResult) return;
     
-    const plantName = plant.aiResult.name || '未知植物';
+    const plantName = plant.aiResult.name || this.translate('common', 'unknownPlant');
     let title = plantName;
     
     if (isShared) {
       // 分享模式：显示"来自朋友的植物名"
-      title = `来自朋友的${plantName}`;
+      title = this.translate('detail', 'status.shareFromFriend', { name: plantName });
     }
     
     wx.setNavigationBarTitle({
@@ -179,16 +216,16 @@ Page({
     try {
       const cloudUtils = require('../../utils/cloud_utils.js');
       if (!cloudUtils || !cloudUtils.loadSharedPlantByOwner) {
-        wx.showToast({ title: '无法加载分享内容', icon: 'none' });
+        wx.showToast({ title: this.translate('detail', 'errors.shareLoadFailed'), icon: 'none' });
         setTimeout(() => wx.navigateBack(), 1500);
         return;
       }
-      wx.showLoading({ title: '加载分享...' });
+      wx.showLoading({ title: this.translate('detail', 'status.loadingShare') });
       cloudUtils.loadSharedPlantByOwner(ownerOpenId, plantId).then((sharedPlant) => {
         wx.hideLoading();
         const plant = sharedPlant && sharedPlant.plant ? sharedPlant.plant : sharedPlant;
         if (!plant) {
-          wx.showToast({ title: '分享已失效或被删除', icon: 'none' });
+          wx.showToast({ title: this.translate('detail', 'errors.shareExpired'), icon: 'none' });
           setTimeout(() => wx.navigateBack(), 1500);
           return;
         }
@@ -205,12 +242,12 @@ Page({
         });
       }).catch(() => {
         wx.hideLoading();
-        wx.showToast({ title: '加载失败', icon: 'none' });
+        wx.showToast({ title: this.translate('detail', 'errors.loadFailed'), icon: 'none' });
         setTimeout(() => wx.navigateBack(), 1500);
       });
     } catch (e) {
       wx.hideLoading();
-      wx.showToast({ title: '加载失败', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'errors.loadFailed'), icon: 'none' });
       setTimeout(() => wx.navigateBack(), 1500);
     }
   },
@@ -258,14 +295,15 @@ Page({
     const url = this.data.plant.aiResult.baike.baike_url;
     if (url) {
       wx.showModal({
-        title: '外部链接',
-        content: '小程序不支持直接打开网页，您可以复制链接后在浏览器中打开。',
-        confirmText: '复制链接',
+        title: this.translate('detail', 'modals.externalLinkTitle'),
+        content: this.translate('detail', 'modals.externalLinkContent'),
+        confirmText: this.translate('detail', 'modals.externalLinkConfirm'),
+        cancelText: this.translate('common', 'cancel'),
         success: (res) => {
           if (res.confirm) {
             wx.setClipboardData({
               data: url,
-              success: () => wx.showToast({ title: '已复制' })
+              success: () => wx.showToast({ title: this.translate('detail', 'toast.copied') })
             });
           }
         }
@@ -278,7 +316,7 @@ Page({
     } else {
       this.setData({
         isEditingName: true,
-        editingName: this.data.plant.aiResult.name || '未知植物'
+        editingName: this.data.plant.aiResult.name || this.translate('common', 'unknownPlant')
       });
     }
   },
@@ -288,7 +326,7 @@ Page({
   saveName: function () {
     const newName = this.data.editingName.trim();
     if (!newName) {
-      wx.showToast({ title: '名称不能为空', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'errors.nameRequired'), icon: 'none' });
       return;
     }
     const plantList = wx.getStorageSync('plantList') || [];
@@ -303,21 +341,21 @@ Page({
       'plant.aiResult.name': newName,
       isEditingName: false
     });
-    wx.showToast({ title: '名称已更新', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'toast.nameUpdated'), icon: 'success' });
   },
   updateWatering: function () {
     const today = new Date().toISOString().split('T')[0];
-    this.updatePlantDataWithHistory('lastWateringDate', today, 'wateringHistory', '浇水时间已更新');
+    this.updatePlantDataWithHistory('lastWateringDate', today, 'wateringHistory', this.translate('detail', 'toast.wateringUpdated'));
   },
   updateFertilizing: function () {
     const today = new Date().toISOString().split('T')[0];
-    this.updatePlantDataWithHistory('lastFertilizingDate', today, 'fertilizingHistory', '施肥时间已更新');
+    this.updatePlantDataWithHistory('lastFertilizingDate', today, 'fertilizingHistory', this.translate('detail', 'toast.fertilizingUpdated'));
   },
   takePhoto: function () {
     // 检查照片数量限制
     if (this.data.plant.images && this.data.plant.images.length >= this.data.maxPhotos) {
       wx.showToast({
-        title: `最多只能保存${this.data.maxPhotos}张照片`,
+        title: this.translate('detail', 'image.limitReached', { count: this.data.maxPhotos }),
         icon: 'none',
         duration: 2000
       });
@@ -344,10 +382,10 @@ Page({
             .catch((err) => {
               console.warn('[detail] upload failed, fallback to saveFile:', err);
               wx.showModal({
-                title: '上传到云端失败',
-                content: '已改为仅保存到本地，图片不会出现在云存储。',
+                title: this.translate('add', 'apiTest.cloudUploadFailedTitle'),
+                content: this.translate('add', 'apiTest.cloudUploadFailedContent'),
                 showCancel: false,
-                confirmText: '知道了'
+                confirmText: this.translate('common', 'gotIt')
               });
               wx.saveFile({
                 tempFilePath: tempFilePath,
@@ -371,10 +409,10 @@ Page({
             });
         } else {
           wx.showModal({
-            title: '云能力不可用',
-            content: '当前无法上传到云存储，图片将仅保存在本地，云端不可见。',
+            title: this.translate('add', 'apiTest.cloudUnavailableTitle'),
+            content: this.translate('add', 'apiTest.cloudUnavailableContent'),
             showCancel: false,
-            confirmText: '知道了'
+            confirmText: this.translate('common', 'gotIt')
           });
           wx.saveFile({
             tempFilePath: tempFilePath,
@@ -399,12 +437,12 @@ Page({
       },
       fail: (err) => {
         console.warn('[detail] chooseMedia failed:', err);
-        wx.showToast({ title: '拍照失败', icon: 'none' });
+        wx.showToast({ title: this.translate('detail', 'errors.photoCaptureFailed'), icon: 'none' });
       }
     });
   },
   analyzePlantHealth: function(filePath) {
-    wx.showLoading({ title: '分析健康状态...' });
+    wx.showLoading({ title: this.translate('detail', 'status.analyzingHealth') });
     
     const location = this.data.locationEnabled ? this.data.currentLocation : null;
     modelUtils.analyzePlantHealth(filePath, location)
@@ -413,11 +451,11 @@ Page({
         
         // 显示分析结果
         wx.showModal({
-          title: '健康分析结果',
+          title: this.translate('detail', 'modals.healthAnalysisTitle'),
           content: result.healthAnalysis,
           showCancel: true,
-          cancelText: '取消',
-          confirmText: '保存照片',
+          cancelText: this.translate('common', 'cancel'),
+          confirmText: this.translate('detail', 'modals.savePhoto'),
           success: (res) => {
             if (res.confirm) {
               this.addPhotoToPlant(filePath, result);
@@ -428,7 +466,7 @@ Page({
       .catch(err => {
         wx.hideLoading();
         wx.showToast({
-          title: '分析失败: ' + err.message,
+          title: this.translate('detail', 'modals.healthAnalysisFailTitle', { message: err.message }),
           icon: 'none',
           duration: 3000
         });
@@ -503,14 +541,14 @@ Page({
       'plant.imageInfos': updatedList.find(p => p.id == this.data.plantId).imageInfos || [],
       'plant.healthAnalyses': updatedList.find(p => p.id == this.data.plantId).healthAnalyses || []
     });
-    wx.showToast({ title: '照片已添加', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'toast.photoAdded'), icon: 'success' });
   },
   setCoverImage: function (e) {
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
     const imageInfos = this.data.plant.imageInfos || [];
     if (index === 0) {
-      wx.showToast({ title: '已经是题图了', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'image.alreadyCover'), icon: 'none' });
       return;
     }
     const newImages = [...images];
@@ -518,25 +556,26 @@ Page({
     [newImages[0], newImages[index]] = [newImages[index], newImages[0]];
     [newImageInfos[0], newImageInfos[index]] = [newImageInfos[index], newImageInfos[0]];
     this.updatePlantImages(newImages, newImageInfos);
-    wx.showToast({ title: '已设为题图', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'image.setCoverSuccess'), icon: 'success' });
   },
   deleteImage: function (e) {
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
     if (images.length <= 1) {
-      wx.showToast({ title: '至少保留一张照片', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'image.keepAtLeastOne'), icon: 'none' });
       return;
     }
     wx.showModal({
-      title: '确认删除',
-      content: '确定要删除这张照片吗？',
+      title: this.translate('detail', 'image.deleteConfirmTitle'),
+      content: this.translate('detail', 'image.deleteConfirmContent'),
+      confirmText: this.translate('detail', 'image.delete'),
       success: (res) => {
         if (res.confirm) {
           const removedPath = images[index];
           const newImages = images.filter((_, i) => i !== index);
           const newImageInfos = (this.data.plant.imageInfos || []).filter((_, i) => i !== index);
           this.updatePlantImages(newImages, newImageInfos);
-          wx.showToast({ title: '照片已删除', icon: 'success' });
+          wx.showToast({ title: this.translate('detail', 'image.deleteSuccess'), icon: 'success' });
           // 清理云端文件（仅当是 cloud:// 开头）
           try {
             const cloudUtils = require('../../utils/cloud_utils.js');
@@ -635,17 +674,17 @@ Page({
   },
   viewWateringHistory: function () {
     const history = this.data.plant.wateringHistory || [];
-    this.showHistoryModal('浇水记录', history, '💧');
+    this.showHistoryModal(this.translate('detail', 'history.titleWatering'), history, '💧');
   },
   viewFertilizingHistory: function () {
     const history = this.data.plant.fertilizingHistory || [];
-    this.showHistoryModal('施肥记录', history, '🌱');
+    this.showHistoryModal(this.translate('detail', 'history.titleFertilizing'), history, '🌱');
   },
   viewHealthAnalyses: function () {
     const analyses = this.data.plant.healthAnalyses || [];
     if (analyses.length === 0) {
       wx.showToast({
-        title: '暂无健康分析记录',
+        title: this.translate('detail', 'modals.healthAnalysisNoRecord'),
         icon: 'none'
       });
       return;
@@ -664,7 +703,7 @@ Page({
     
     this.setData({
       showHistoryModal: true,
-      historyModalTitle: '健康分析记录',
+      historyModalTitle: this.translate('detail', 'history.titleHealth'),
       historyModalData: formattedAnalyses,
       historyModalIcon: '🏥'
     });
@@ -733,7 +772,7 @@ Page({
       editingMemoIndex: -1,
       editingMemo: ''
     });
-    wx.showToast({ title: '备忘已保存', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'image.memoSaved'), icon: 'success' });
   },
   
   cancelMemoEdit: function() {
@@ -747,7 +786,7 @@ Page({
   moveImageUp: function(e) {
     const index = e.currentTarget.dataset.index;
     if (index === 0) {
-      wx.showToast({ title: '已经是第一张了', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'image.firstImage'), icon: 'none' });
       return;
     }
     
@@ -761,14 +800,14 @@ Page({
     }
     
     this.updatePlantImages(images, imageInfos);
-    wx.showToast({ title: '图片顺序已调整', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   
   moveImageDown: function(e) {
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
     if (index === images.length - 1) {
-      wx.showToast({ title: '已经是最后一张了', icon: 'none' });
+      wx.showToast({ title: this.translate('detail', 'image.lastImage'), icon: 'none' });
       return;
     }
     
@@ -782,14 +821,15 @@ Page({
     }
     
     this.updatePlantImages(newImages, newImageInfos);
-    wx.showToast({ title: '图片顺序已调整', icon: 'success' });
+    wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   
   deletePlant: function () {
     wx.showModal({
-      title: '确认删除',
-      content: `您确定要删除 "${this.data.plant.aiResult.name || '此绿植'}" 吗？此操作不可恢复。`,
+      title: this.translate('detail', 'modals.deletePlantTitle'),
+      content: this.translate('detail', 'modals.deletePlantContent', { name: this.data.plant.aiResult.name || this.translate('common', 'unknownPlant') }),
       confirmColor: '#e64340',
+      confirmText: this.translate('detail', 'image.delete'),
       success: (res) => {
         if (res.confirm) {
           const plantList = wx.getStorageSync('plantList') || [];
@@ -813,7 +853,7 @@ Page({
               cloudUtils.savePlantList(newList);
             }
           } catch (e) {}
-          wx.showToast({ title: '删除成功', icon: 'success', duration: 1500 });
+          wx.showToast({ title: this.translate('detail', 'modals.deletePlantSuccess'), icon: 'success', duration: 1500 });
           setTimeout(() => { wx.navigateBack(); }, 1500);
         }
       }
@@ -854,7 +894,7 @@ Page({
       : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
     
     return {
-      title: `分享我的植物：${plant.aiResult.name || '未知植物'}`,
+      title: this.translate('detail', 'share.shareTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
       path: path,
       imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
     };
@@ -868,7 +908,7 @@ Page({
       ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `id=${encodeURIComponent(this.data.plantId)}`;
     return {
-      title: `我的植物：${plant.aiResult.name || '未知植物'} - 来自我的阳台花园`,
+      title: this.translate('detail', 'share.momentsTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
       query: query,
       imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
     };
@@ -921,7 +961,7 @@ Page({
             ctx.setFillStyle('#FFFFFF');
             ctx.setFontSize(16);
             ctx.setTextAlign('center');
-            ctx.fillText(plant.aiResult?.name || '未知植物', canvasWidth / 2, canvasHeight - 20);
+            ctx.fillText(plant.aiResult?.name || this.translate('common', 'unknownPlant'), canvasWidth / 2, canvasHeight - 20);
 
             ctx.draw(false, () => {
               wx.canvasToTempFilePath({

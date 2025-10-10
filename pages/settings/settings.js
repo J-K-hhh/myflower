@@ -1,26 +1,76 @@
+const i18n = require('../../utils/i18n.js');
+
 Page({
   data: {
     selectedModel: 'baidu',
     maxPhotos: 10,
     maxRecords: 50,
     models: [
-      { id: 'baidu', name: '百度AI植物识别', description: '快速识别植物种类' },
-      { id: 'qwen-vl', name: '通义千问VL', description: '多模态分析，提供详细养护建议' }
+      { id: 'baidu' },
+      { id: 'qwen-vl' }
+    ],
+    languageOptions: [
+      { value: 'zh' },
+      { value: 'en' }
     ],
     locationEnabled: false,
-    currentLocation: null
+    currentLocation: null,
+    i18n: i18n.getSection('settings'),
+    i18nCommon: i18n.getSection('common'),
+    language: i18n.getLanguage()
   },
 
   onLoad: function() {
+    this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
   },
 
   onShow: function() {
     // 每次显示页面时重新加载设置，确保显示最新的选择状态
+    this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
     this.setRandomTitle();
+  },
+
+  updateTranslations: function() {
+    const app = getApp();
+    const language = app && typeof app.getLanguage === 'function' ? app.getLanguage() : i18n.getLanguage();
+    const settingsTexts = i18n.getSection('settings', language);
+    const commonTexts = i18n.getSection('common', language);
+    const models = [
+      {
+        id: 'baidu',
+        name: settingsTexts.modelList.baidu.name,
+        description: settingsTexts.modelList.baidu.description
+      },
+      {
+        id: 'qwen-vl',
+        name: settingsTexts.modelList.qwen.name,
+        description: settingsTexts.modelList.qwen.description
+      }
+    ];
+    const languageOptions = this.data.languageOptions.map(option => ({
+      ...option,
+      label: commonTexts.languageNames[option.value] || option.value
+    }));
+    this.setData({
+      i18n: settingsTexts,
+      i18nCommon: commonTexts,
+      language: language,
+      models: models,
+      languageOptions: languageOptions
+    });
+  },
+
+  translate: function(namespace, keyPath, params = {}) {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+    const language = this.data.language || i18n.getLanguage();
+    return i18n.t(namespace, keyPath, params, language);
   },
   
   setRandomTitle: function() {
@@ -52,7 +102,7 @@ Page({
     this.cleanupExcessRecords(this.data.maxRecords);
     
     wx.showToast({
-      title: '设置已保存',
+      title: this.translate('settings', 'toasts.settingsSaved'),
       icon: 'success'
     });
   },
@@ -113,7 +163,7 @@ Page({
         }
       } catch (e) {}
       wx.showToast({
-        title: `已清理超出限制的旧图片`,
+        title: this.translate('settings', 'toasts.photosCleaned'),
         icon: 'success',
         duration: 2000
       });
@@ -165,7 +215,7 @@ Page({
         }
       } catch (e) {}
       wx.showToast({
-        title: `已清理超出限制的旧记录`,
+        title: this.translate('settings', 'toasts.recordsCleaned'),
         icon: 'success',
         duration: 2000
       });
@@ -192,8 +242,8 @@ Page({
       },
       fail: () => {
         wx.showModal({
-          title: '位置权限',
-          content: '需要位置权限来提供更准确的养护建议，请在设置中开启',
+          title: this.translate('settings', 'modals.locationPermissionTitle'),
+          content: this.translate('settings', 'modals.locationPermissionContent'),
           showCancel: false
         });
       }
@@ -219,7 +269,7 @@ Page({
 
   testModelConnection: function() {
     const modelUtils = require('../../utils/model_utils.js');
-    wx.showLoading({ title: '测试连接...' });
+    wx.showLoading({ title: this.translate('settings', 'modelTest.testing') });
     
     // 使用新的模型配置检查
     const modelConfig = modelUtils.getModelConfig(this.data.selectedModel);
@@ -227,7 +277,7 @@ Page({
     if (!modelConfig.apiKey) {
       wx.hideLoading();
       wx.showToast({
-        title: 'API Key未配置',
+        title: this.translate('settings', 'modelTest.missingKey'),
         icon: 'none',
         duration: 3000
       });
@@ -238,7 +288,7 @@ Page({
     setTimeout(() => {
       wx.hideLoading();
       wx.showToast({
-        title: '配置正常',
+        title: this.translate('settings', 'modelTest.success'),
         icon: 'success'
       });
       console.log('模型配置检查通过:', modelConfig.name);
@@ -247,15 +297,15 @@ Page({
 
   clearAllData: function() {
     wx.showModal({
-      title: '清除所有数据',
-      content: '此操作将删除所有绿植记录，确定继续吗？',
+      title: this.translate('settings', 'modals.clearDataTitle'),
+      content: this.translate('settings', 'modals.clearDataContent'),
       confirmColor: '#e64340',
       success: (res) => {
         if (res.confirm) {
           wx.removeStorageSync('plantList');
           wx.removeStorageSync('appSettings');
           wx.showToast({
-            title: '数据已清除',
+            title: this.translate('settings', 'toasts.dataCleared'),
             icon: 'success'
           });
           setTimeout(() => {
@@ -266,5 +316,22 @@ Page({
         }
       }
     });
+  },
+
+  onLanguageChange: function(e) {
+    const newLanguage = e.detail.value;
+    if (!newLanguage || newLanguage === this.data.language) {
+      return;
+    }
+    const app = getApp();
+    if (app && typeof app.setLanguage === 'function') {
+      app.setLanguage(newLanguage);
+    } else {
+      i18n.setLanguage(newLanguage);
+      wx.setStorageSync('appLanguage', newLanguage);
+    }
+    this.setData({ language: newLanguage });
+    this.updateTranslations();
+    this.setRandomTitle();
   }
 });

@@ -1,10 +1,17 @@
+const i18n = require('./utils/i18n.js');
+
 App({
   onLaunch() {
     const logs = wx.getStorageSync('logs') || []
     logs.unshift(Date.now())
     wx.setStorageSync('logs', logs)
+
+    const savedLanguage = wx.getStorageSync('appLanguage') || 'zh'
+    i18n.setLanguage(savedLanguage)
+    this.globalData.language = i18n.getLanguage()
+
     if (!wx.cloud) {
-      console.error('请使用 2.2.3+ 的基础库以使用云能力');
+      console.error(i18n.t('common', 'pleaseUseNewVersion'))
       return;
     }
 
@@ -34,7 +41,7 @@ App({
     // 设置随机emoji标题
     this.setRandomTitle()
   },
-  
+
   // 设置随机emoji标题
   setRandomTitle() {
     const plantEmojis = [
@@ -47,7 +54,7 @@ App({
     
     // 随机选择一个emoji
     const randomEmoji = plantEmojis[Math.floor(Math.random() * plantEmojis.length)]
-    const title = `${randomEmoji} 我的阳台花园`
+    const title = i18n.t('common', 'appTitle', { emoji: randomEmoji }, this.getLanguage())
     
     // 设置导航栏标题
     wx.setNavigationBarTitle({
@@ -58,12 +65,29 @@ App({
     this.globalData.currentEmoji = randomEmoji
     this.globalData.currentTitle = title
   },
+
+  setLanguage(lang) {
+    const language = i18n.translations[lang] ? lang : 'zh'
+    i18n.setLanguage(language)
+    this.globalData.language = language
+    wx.setStorageSync('appLanguage', language)
+    this.setRandomTitle()
+  },
+
+  getLanguage() {
+    return this.globalData.language || i18n.getLanguage()
+  },
+
+  t(namespace, keyPath, params = {}) {
+    return i18n.t(namespace, keyPath, params, this.getLanguage())
+  },
   
   
   globalData: {
     userInfo: null,
     currentEmoji: '🌱',
-    currentTitle: '🌱 我的阳台花园',
+    currentTitle: '',
+    language: 'zh',
     baiduAi: {
       apiKey: 'rJtyOhhpWmzpCtkqe2RBSuY6',
       secretKey: 'o9jMcF3qbM5wlpsWxFfDFplFIfu9RITy',

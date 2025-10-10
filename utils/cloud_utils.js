@@ -1,5 +1,17 @@
+const i18n = require('./i18n.js');
+
 let cloudReady = false;
 let currentOpenId = '';
+
+function translate(namespace, keyPath, params = {}) {
+  try {
+    const app = getApp();
+    if (app && typeof app.t === 'function') {
+      return app.t(namespace, keyPath, params);
+    }
+  } catch (e) {}
+  return i18n.t(namespace, keyPath, params);
+}
 
 function initCloud() {
   if (cloudReady) return true;
@@ -26,7 +38,7 @@ function getOpenId() {
     if (currentOpenId) { resolve(currentOpenId); return; }
     if (!initCloud()) {
       console.warn('[cloud_utils] Cloud not ready, cannot get openid');
-      wx.showToast({ title: '云能力不可用', icon: 'none' });
+      wx.showToast({ title: translate('common', 'storage.cloudUnavailable'), icon: 'none' });
       resolve('');
       return;
     }
@@ -39,7 +51,7 @@ function getOpenId() {
       })
       .catch((err) => {
         console.error('[cloud_utils] getOpenId failed:', err);
-        wx.showToast({ title: '无法获取用户身份', icon: 'none' });
+        wx.showToast({ title: translate('common', 'storage.identityFailed'), icon: 'none' });
         resolve('');
       });
   });
@@ -65,7 +77,7 @@ function uploadImage(filePath) {
         },
         fail: (err) => {
           console.error('[cloud_utils] Upload failed:', err);
-          wx.showToast({ title: '图片上传失败', icon: 'none' });
+          wx.showToast({ title: translate('common', 'storage.uploadFailed'), icon: 'none' });
           reject(err);
         }
       });
@@ -139,7 +151,7 @@ function savePlantList(plantList) {
           resolve(true);
         }).catch((updateErr) => {
           console.error('[cloud_utils] savePlantList update failed:', updateErr);
-          wx.showToast({ title: '云同步失败', icon: 'none' });
+          wx.showToast({ title: translate('common', 'storage.syncFailed'), icon: 'none' });
           resolve(false);
         });
       });
@@ -226,5 +238,4 @@ function loadSharedPlantByOwner(ownerOpenId, plantId) {
 }
 
 module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
-
 

@@ -6,8 +6,8 @@
   <!-- 如果列表为空，显示提示信息 -->
   <view wx:if="{{plantList.length === 0}}" class="empty-container">
     <view class="empty-icon">🌱</view>
-    <view class="empty-text">您的阳台花园还在等第一株小绿植呢</view>
-    <view class="empty-tip">点击下方的"+"按钮开始记录吧</view>
+    <view class="empty-text">{{i18n.emptyState.title}}</view>
+    <view class="empty-tip">{{i18n.emptyState.tip}}</view>
   </view>
 
   <!-- 绿植列表 -->
@@ -15,8 +15,8 @@
     
     <!-- 批量模式提示（固定在顶部） -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip">
-      <text class="batch-tip-text">批量模式：点击植物进行选择</text>
-      <text class="batch-tip-count">已选择 {{selectedPlants.length}} 株</text>
+      <text class="batch-tip-text">{{i18n.batchMode.tip}}</text>
+      <text class="batch-tip-count">{{batchSelectionText}}</text>
     </view>
     <!-- 占位符，避免列表被顶部提示遮挡 -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip-spacer"></view>
@@ -32,7 +32,7 @@
       
       <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
       <view class="card-content">
-        <view class="card-title">{{item.aiResult.name || '未知植物'}}</view>
+        <view class="card-title">{{item.aiResult.name || i18nCommon.unknownPlant}}</view>
         <view class="card-info">
           <view class="info-item" wx:if="{{item.lastWateringDate}}">
             <text class="info-icon">💧</text>
@@ -70,15 +70,15 @@
   <view wx:if="{{batchMode}}" class="batch-actions">
     <view class="batch-action-btn" bindtap="batchWatering">
       <text class="batch-action-icon">💧</text>
-      <text class="batch-action-text">批量浇水</text>
+      <text class="batch-action-text">{{i18n.batchMode.watering}}</text>
     </view>
     <view class="batch-action-btn" bindtap="batchFertilizing">
       <text class="batch-action-icon">🌱</text>
-      <text class="batch-action-text">批量施肥</text>
+      <text class="batch-action-text">{{i18n.batchMode.fertilizing}}</text>
     </view>
     <view class="batch-action-btn cancel" bindtap="exitBatchMode">
       <text class="batch-action-icon">✕</text>
-      <text class="batch-action-text">退出</text>
+      <text class="batch-action-text">{{i18n.batchMode.exit}}</text>
     </view>
   </view>
   
@@ -91,7 +91,7 @@
   <view class="batch-history-modal" wx:if="{{showBatchHistoryModal}}" bindtap="closeBatchHistoryModal">
     <view class="batch-history-content" catchtap="stopPropagation">
       <view class="batch-history-header">
-        <text class="batch-history-title">批量操作记录</text>
+        <text class="batch-history-title">{{i18n.batchMode.historyTitle}}</text>
         <text class="close-btn" bindtap="closeBatchHistoryModal">✕</text>
       </view>
       <scroll-view class="batch-history-list" scroll-y="true">
@@ -101,13 +101,13 @@
             <view class="batch-history-time">{{item.date}} {{item.time}}</view>
           </view>
           <view class="batch-history-plants">
-            <text class="batch-history-count">{{item.count}}株植物：</text>
+            <text class="batch-history-count">{{item.plantCountLabel}}</text>
             <text class="batch-history-plant-list">{{item.plantList}}</text>
           </view>
         </view>
         <view class="batch-history-empty" wx:if="{{batchHistoryData.length === 0}}">
           <text class="empty-icon">📋</text>
-          <text class="empty-text">暂无批量操作记录</text>
+          <text class="empty-text">{{i18n.batchMode.emptyHistory}}</text>
         </view>
       </scroll-view>
     </view>
