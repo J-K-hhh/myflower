@@ -221,6 +221,52 @@
   transform: scale(0.9);
 }
 
+/* 数据恢复区域 */
+.recovery-section {
+  background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recovery-tip {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.recovery-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.recovery-text {
+  color: white;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.recovery-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  border-radius: 20rpx;
+  padding: 12rpx 24rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.recovery-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.95);
+}
+
+
+
 /* 内容区域 */
 .content-box {
   padding: 20rpx;

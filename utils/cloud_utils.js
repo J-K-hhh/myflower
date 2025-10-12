@@ -125,6 +125,15 @@ function savePlantList(plantList) {
       resolve(false);
       return;
     }
+    
+    // 先确保本地有副本
+    try {
+      wx.setStorageSync('plantList', plantList);
+      console.log('[cloud_utils] 本地副本已更新');
+    } catch (e) {
+      console.error('[cloud_utils] 本地副本更新失败:', e);
+    }
+    
     getOpenId().then(openid => {
       if (!openid) { resolve(false); return; }
       const db = wx.cloud.database();
@@ -138,6 +147,7 @@ function savePlantList(plantList) {
         }
       }).then(() => {
         console.log('[cloud_utils] savePlantList set success');
+        updateSyncTime(); // 记录同步时间
         resolve(true);
       }).catch((err) => {
         console.warn('[cloud_utils] set failed, try update:', err);
@@ -148,10 +158,19 @@ function savePlantList(plantList) {
           }
         }).then(() => {
           console.log('[cloud_utils] savePlantList update success');
+          updateSyncTime(); // 记录同步时间
           resolve(true);
         }).catch((updateErr) => {
           console.error('[cloud_utils] savePlantList update failed:', updateErr);
-          wx.showToast({ title: translate('common', 'storage.syncFailed'), icon: 'none' });
+          // 即使云端同步失败，本地数据仍然可用
+          console.log('[cloud_utils] 云端同步失败，但本地数据已保存');
+          // 显示错误弹窗
+          wx.showModal({
+            title: '云端同步失败',
+            content: `无法同步数据到云端，错误信息：${updateErr.errMsg || updateErr.message || '未知错误'}`,
+            showCancel: false,
+            confirmText: '确定'
+          });
           resolve(false);
         });
       });
@@ -164,22 +183,51 @@ function savePlantList(plantList) {
 
 function loadPlantList() {
   return new Promise((resolve, reject) => {
+    // 优先从本地加载
+    try {
+      const localList = wx.getStorageSync('plantList') || [];
+      if (localList.length > 0) {
+        console.log('[cloud_utils] 从本地加载数据，数量:', localList.length);
+        resolve(localList);
+        return;
+      }
+    } catch (e) {
+      console.warn('[cloud_utils] 本地数据加载失败:', e);
+    }
+    
+    // 本地没有数据，尝试从云端加载
     if (!initCloud() || !wx.cloud.database) {
       console.warn('[cloud_utils] loadPlantList: cloud database not available');
       resolve([]);
       return;
     }
+    
+    console.log('[cloud_utils] 本地无数据，从云端加载');
     getOpenId().then(openid => {
       if (!openid) { resolve([]); return; }
       const db = wx.cloud.database();
       db.collection('plant_lists').doc(openid).get()
         .then(res => {
           const list = (res.data && res.data.list) || [];
-          console.log('[cloud_utils] loadPlantList success, count:', list.length);
+          console.log('[cloud_utils] 云端数据加载成功，数量:', list.length);
+          // 将云端数据保存到本地
+          try {
+            wx.setStorageSync('plantList', list);
+            console.log('[cloud_utils] 云端数据已保存到本地');
+          } catch (e) {
+            console.error('[cloud_utils] 云端数据保存到本地失败:', e);
+          }
           resolve(list);
         })
         .catch((err) => {
-          console.warn('[cloud_utils] loadPlantList not found or error:', err);
+          console.warn('[cloud_utils] 云端数据加载失败:', err);
+          // 显示错误弹窗
+          wx.showModal({
+            title: '云端数据加载失败',
+            content: `无法从云端加载数据，错误信息：${err.errMsg || err.message || '未知错误'}`,
+            showCancel: false,
+            confirmText: '确定'
+          });
           resolve([]);
         });
     }).catch((err) => {
@@ -189,8 +237,40 @@ function loadPlantList() {
   });
 }
 
+// 数据同步状态监控
+function getSyncStatus() {
+  try {
+    const localList = wx.getStorageSync('plantList') || [];
+    const lastSyncTime = wx.getStorageSync('lastSyncTime') || 0;
+    return {
+      hasLocalData: localList.length > 0,
+      localCount: localList.length,
+      lastSyncTime: lastSyncTime,
+      timeSinceLastSync: Date.now() - lastSyncTime
+    };
+  } catch (e) {
+    return {
+      hasLocalData: false,
+      localCount: 0,
+      lastSyncTime: 0,
+      timeSinceLastSync: Infinity
+    };
+  }
+}
+
+// 更新同步时间戳
+function updateSyncTime() {
+  try {
+    wx.setStorageSync('lastSyncTime', Date.now());
+  } catch (e) {
+    console.error('更新同步时间戳失败:', e);
+  }
+}
+
 module.exports.savePlantList = savePlantList;
 module.exports.loadPlantList = loadPlantList;
+module.exports.getSyncStatus = getSyncStatus;
+module.exports.updateSyncTime = updateSyncTime;
 
 // Delete cloud storage files by fileIDs; ignores non-cloud paths
 function deleteCloudFiles(fileIdList) {
@@ -209,9 +289,25 @@ function deleteCloudFiles(fileIdList) {
       success: (res) => {
         // res.fileList: [{ fileID, status, errMsg }]
         const failed = (res.fileList || []).filter(i => i.status !== 0);
+        if (failed.length > 0) {
+          console.warn('[cloud_utils] 部分文件删除失败:', failed);
+          wx.showModal({
+            title: '文件删除失败',
+            content: `部分云端文件删除失败，失败数量：${failed.length}`,
+            showCancel: false,
+            confirmText: '确定'
+          });
+        }
         resolve({ deleted: cloudIds.length - failed.length, failed: failed });
       },
-      fail: () => {
+      fail: (err) => {
+        console.error('[cloud_utils] 文件删除失败:', err);
+        wx.showModal({
+          title: '文件删除失败',
+          content: `无法删除云端文件，错误信息：${err.errMsg || err.message || '未知错误'}`,
+          showCancel: false,
+          confirmText: '确定'
+        });
         resolve({ deleted: 0, failed: cloudIds.map(id => ({ fileID: id })) });
       }
     });

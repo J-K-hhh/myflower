@@ -160,10 +160,16 @@ Page({
   cleanupExcessPhotos: function(maxPhotos) {
     const plantList = wx.getStorageSync('plantList') || [];
     let hasChanges = false;
+    let filesToDelete = [];
     
     const updatedList = plantList.map(plant => {
       if (plant.images && plant.images.length > maxPhotos) {
         hasChanges = true;
+        // 收集需要删除的云端文件
+        const removedImages = plant.images.slice(maxPhotos);
+        const cloudFiles = removedImages.filter(img => typeof img === 'string' && img.indexOf('cloud://') === 0);
+        filesToDelete = [...filesToDelete, ...cloudFiles];
+        
         // 保留题图（第一张）和最新的几张图片
         const newImages = plant.images.slice(0, maxPhotos);
         return {
@@ -175,16 +181,44 @@ Page({
     });
     
     if (hasChanges) {
+      // 先更新本地存储
       wx.setStorageSync('plantList', updatedList);
       // 标记首页需要刷新
       try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
-      // Persist to cloud database (best-effort)
+      
+      // 清理云端文件
+      if (filesToDelete.length > 0) {
+        try {
+          const cloudUtils = require('../../utils/cloud_utils.js');
+          if (cloudUtils && cloudUtils.deleteCloudFiles) {
+            console.log('清理多余图片时删除云端文件:', filesToDelete);
+            cloudUtils.deleteCloudFiles(filesToDelete);
+          }
+        } catch (e) {
+          console.error('清理云端文件失败:', e);
+        }
+      }
+      
+      // 异步同步到云端（不阻塞本地操作）
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');
         if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-          cloudUtils.savePlantList(updatedList);
+          setTimeout(() => {
+            cloudUtils.savePlantList(updatedList).then((success) => {
+              if (success) {
+                console.log('清理图片云端同步成功');
+              } else {
+                console.warn('清理图片云端同步失败');
+              }
+            }).catch((err) => {
+              console.error('清理图片云端同步错误:', err);
+            });
+          }, 100);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('清理图片云端同步异常:', e);
+      }
+      
       wx.showToast({
         title: this.translate('settings', 'toasts.photosCleaned'),
         icon: 'success',

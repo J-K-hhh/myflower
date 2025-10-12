@@ -1,6 +1,6 @@
 <!--pages/detail/detail.wxml-->
 <view class="container">
-  <swiper class="image-swiper" indicator-dots="true" autoplay="true" interval="3000" duration="500">
+  <swiper class="image-swiper" indicator-dots="true" autoplay="{{editingMemoIndex < 0}}" interval="3000" duration="500">
     <swiper-item wx:for="{{plant.images}}" wx:key="*this">
       <view class="image-container">
         <image src="{{item}}" class="swiper-image" mode="aspectFill" bindtap="previewImage" data-src="{{item}}"></image>
@@ -35,14 +35,14 @@
                 class="image-memo" 
                 bindtap="{{readonlyShareView ? '' : 'editImageMemo'}}" 
                 data-index="{{index}}">
-            📝 {{plant.imageInfos[index].memo}}
+            {{plant.imageInfos[index].memo}}
           </view>
           <!-- 添加备忘按钮 - 仅在非分享模式下显示 -->
           <view wx:elif="{{plant.imageInfos && plant.imageInfos[index] && !readonlyShareView}}" 
                 class="add-memo-btn" 
                 bindtap="editImageMemo" 
                 data-index="{{index}}">
-            📝 {{i18n.image.addMemo}}
+            {{i18n.image.addMemo}}
           </view>
         </view>
         <!-- V0.3 图片顺序调整按钮 - 仅在非分享模式下显示 -->
@@ -56,6 +56,16 @@
   </swiper>
 
   <view class="content-box">
+    <!-- 数据恢复按钮 - 仅在图片信息丢失时显示 -->
+    <view wx:if="{{!plant.imageInfos || plant.imageInfos.length === 0}}" class="recovery-section">
+      <view class="recovery-tip">
+        <text class="recovery-icon">⚠️</text>
+        <text class="recovery-text">图片信息可能丢失，尝试恢复数据</text>
+      </view>
+      <button class="recovery-btn" bindtap="recoverImageData">恢复数据</button>
+    </view>
+    
+    
     <!-- 识别名称 -->
     <view class="plant-title-container">
       <text class="plant-title" wx:if="{{!isEditingName}}">{{plant.aiResult.name || i18nCommon.unknownPlant}}</text>

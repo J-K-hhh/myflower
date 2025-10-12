@@ -11,7 +11,7 @@ Page({
     isEditingName: false,
     editingName: '',
     showHistoryModal: false,
-    historyModalTitle: '',
+    historyModalTitle: '',  
     historyModalData: [],
     historyModalIcon: '',
     currentLocation: null,
@@ -161,24 +161,66 @@ Page({
       }
       // 如果数量不一致或缺少 path，则重建
       if (plant.imageInfos.length !== images.length || plant.imageInfos.some(info => !info || !info.path)) {
-        const rebuilt = images.map((imgPath) => ({
-          path: imgPath,
-          timestamp: typeof plant.createTime === 'number' ? plant.createTime : Date.now(),
-          date: new Date(typeof plant.createTime === 'number' ? plant.createTime : Date.now()).toISOString().split('T')[0],
-          memo: ''
-        }));
+        console.log('重建图片信息:', {
+          imagesLength: images.length,
+          imageInfosLength: plant.imageInfos.length,
+          images: images,
+          imageInfos: plant.imageInfos
+        });
+        
+        const rebuilt = images.map((imgPath, index) => {
+          // 尝试通过路径匹配找到现有的图片信息
+          const existingInfo = plant.imageInfos.find(info => info && info.path === imgPath) || plant.imageInfos[index];
+          const newInfo = {
+            path: imgPath,
+            timestamp: existingInfo?.timestamp || (typeof plant.createTime === 'number' ? plant.createTime : Date.now()),
+            date: existingInfo?.date || new Date(typeof plant.createTime === 'number' ? plant.createTime : Date.now()).toISOString().split('T')[0],
+            memo: existingInfo?.memo || '' // 保留现有备忘
+          };
+          console.log(`图片 ${index}:`, { imgPath, existingInfo, newInfo });
+          return newInfo;
+        });
         plant.imageInfos = rebuilt;
-        // 写回本地并尝试云端同步（吞错）
+        // 写回本地（不同步到云端，避免覆盖原始cloud://数据）
         const newList = plantList.map(p => p.id == plantId ? plant : p);
         wx.setStorageSync('plantList', newList);
-        try {
-          const cloudUtils = require('../../utils/cloud_utils.js');
-          if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-            cloudUtils.savePlantList(newList);
-          }
-        } catch (e) {}
       }
+      // 先设置原始数据
+      console.log('设置原始植物数据:', {
+        plantId: plant.id,
+        images: plant.images,
+        imageInfos: plant.imageInfos
+      });
       this.setData({ plant: plant });
+      
+      // 检查是否有cloud://图片需要转换
+      const hasCloudImages = Array.isArray(plant.images) && plant.images.some(img => 
+        typeof img === 'string' && img.indexOf('cloud://') === 0
+      );
+      
+      console.log('图片类型检查:', {
+        hasCloudImages,
+        images: plant.images,
+        cloudImages: plant.images?.filter(img => typeof img === 'string' && img.indexOf('cloud://') === 0)
+      });
+      
+      if (hasCloudImages) {
+        // 如果有cloud://图片，转换为临时URL（仅用于显示，不保存到本地存储）
+        console.log('开始转换cloud://图片');
+        this.resolveCloudImagesForReadonly(plant).then((resolved) => {
+          console.log('cloud://图片转换完成');
+          this.setData({ plant: resolved });
+          this.updatePageTitle(resolved, false);
+        }).catch((err) => {
+          console.error('cloud://图片转换失败:', err);
+          this.updatePageTitle(plant, false);
+        });
+      } else {
+        // 如果没有cloud://图片，直接更新标题
+        console.log('没有cloud://图片，直接显示本地图片');
+        this.updatePageTitle(plant, false);
+      }
+      
       // 预生成分享图片
       this.generateShareImage().then(imageUrl => {
         this.setData({ shareImageUrl: imageUrl });
@@ -186,13 +228,6 @@ Page({
         console.error('预生成分享图片失败:', err);
         // 如果生成失败，使用原始图片
         this.setData({ shareImageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : '' });
-      });
-      // 确保本地视图也可显示 cloud:// 图片（转换为临时URL，但不弹窗）
-      this.resolveCloudImagesForReadonly(plant).then((resolved) => {
-        this.setData({ plant: resolved });
-        this.updatePageTitle(resolved, false);
-      }).catch(() => {
-        this.updatePageTitle(plant, false);
       });
     } else {
       wx.showToast({
@@ -270,12 +305,18 @@ Page({
         const ids = (Array.isArray(p.images) ? p.images : []).filter(path => typeof path === 'string' && path.indexOf('cloud://') === 0);
         const infoIds = Array.isArray(p.imageInfos) ? p.imageInfos.map(i => i && i.path).filter(path => typeof path === 'string' && path && path.indexOf('cloud://') === 0) : [];
         const fileList = Array.from(new Set([ ...ids, ...infoIds ]));
+        
         if (!wx.cloud || !wx.cloud.getTempFileURL || fileList.length === 0) {
           resolve(p); return;
         }
         wx.cloud.getTempFileURL({ fileList }).then((res) => {
           const map = {};
-          (res.fileList || []).forEach(i => { if (i && i.fileID && i.tempFileURL) { map[i.fileID] = i.tempFileURL; } });
+          (res.fileList || []).forEach(i => { 
+            if (i && i.fileID && i.tempFileURL) { 
+              map[i.fileID] = i.tempFileURL;
+            }
+          });
+          
           if (Array.isArray(p.images)) {
             p.images = p.images.map(path => (typeof path === 'string' && map[path]) ? map[path] : path);
           }
@@ -288,7 +329,16 @@ Page({
             });
           }
           resolve(p);
-        }).catch(() => resolve(p));
+        }).catch((err) => {
+          console.error('云存储访问失败:', err);
+          wx.showModal({
+            title: '云存储访问失败',
+            content: `无法访问云存储中的图片，错误信息：${err.errMsg || err.message || '未知错误'}`,
+            showCancel: false,
+            confirmText: '确定'
+          });
+          resolve(p);
+        });
       } catch (e) {
         resolve(plant);
       }
@@ -536,15 +586,29 @@ Page({
       }
       return plant;
     });
+    // 先更新本地存储
     wx.setStorageSync('plantList', updatedList);
     // 标记首页需要刷新
     try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
-    // Persist to cloud database (best-effort)
+    
+    // 异步同步到云端（不阻塞本地操作）
     if (cloudUtils && cloudUtils.isCloudAvailable) {
-      try {
-        cloudUtils.savePlantList(updatedList).then((ok) => {
-        });
-      } catch (e) {}
+      // 使用setTimeout确保本地操作完成后再同步
+      setTimeout(() => {
+        try {
+          cloudUtils.savePlantList(updatedList).then((success) => {
+            if (success) {
+              console.log('添加图片云端同步成功');
+            } else {
+              console.warn('添加图片云端同步失败');
+            }
+          }).catch((err) => {
+            console.error('添加图片云端同步错误:', err);
+          });
+        } catch (e) {
+          console.error('添加图片云端同步异常:', e);
+        }
+      }, 100);
     }
     this.setData({
       'plant.images': updatedList.find(p => p.id == this.data.plantId).images,
@@ -582,15 +646,26 @@ Page({
       success: (res) => {
         if (res.confirm) {
           const removedPath = images[index];
+          const removedImageInfo = (this.data.plant.imageInfos || [])[index];
           const newImages = images.filter((_, i) => i !== index);
           const newImageInfos = (this.data.plant.imageInfos || []).filter((_, i) => i !== index);
           this.updatePlantImages(newImages, newImageInfos);
           wx.showToast({ title: this.translate('detail', 'image.deleteSuccess'), icon: 'success' });
-          // 清理云端文件（仅当是 cloud:// 开头）
+          
+          // 清理云端文件（收集所有需要删除的cloud://文件）
+          const filesToDelete = [];
+          if (removedPath && removedPath.indexOf('cloud://') === 0) {
+            filesToDelete.push(removedPath);
+          }
+          if (removedImageInfo && removedImageInfo.path && removedImageInfo.path.indexOf('cloud://') === 0) {
+            filesToDelete.push(removedImageInfo.path);
+          }
+          
           try {
             const cloudUtils = require('../../utils/cloud_utils.js');
-            if (removedPath && removedPath.indexOf('cloud://') === 0 && cloudUtils.deleteCloudFiles) {
-              cloudUtils.deleteCloudFiles([removedPath]);
+            if (filesToDelete.length > 0 && cloudUtils.deleteCloudFiles) {
+              console.log('删除图片时清理云端文件:', filesToDelete);
+              cloudUtils.deleteCloudFiles(filesToDelete);
             }
           } catch (e) {}
         }
@@ -608,15 +683,28 @@ Page({
       }
       return plant;
     });
+    // 先更新本地存储
     wx.setStorageSync('plantList', updatedList);
     // 标记首页需要刷新
     try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
-    // Persist to cloud database (best-effort)
+    
+    // 异步同步到云端（不阻塞本地操作）
     if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-      try {
-        cloudUtils.savePlantList(updatedList).then((ok) => {
-        });
-      } catch (e) {}
+      setTimeout(() => {
+        try {
+          cloudUtils.savePlantList(updatedList).then((success) => {
+            if (success) {
+              console.log('更新图片云端同步成功');
+            } else {
+              console.warn('更新图片云端同步失败');
+            }
+          }).catch((err) => {
+            console.error('更新图片云端同步错误:', err);
+          });
+        } catch (e) {
+          console.error('更新图片云端同步异常:', e);
+        }
+      }, 100);
     }
     const updateData = { 'plant.images': newImages };
     if (newImageInfos) {
@@ -777,8 +865,20 @@ Page({
     });
     
     wx.setStorageSync('plantList', updatedList);
+    
+    // 创建备份数据
+    const currentPlant = updatedList.find(p => p.id == this.data.plantId);
+    if (currentPlant && currentPlant.imageInfos) {
+      const backupKey = `plant_backup_${this.data.plantId}`;
+      wx.setStorageSync(backupKey, {
+        imageInfos: currentPlant.imageInfos,
+        timestamp: Date.now()
+      });
+      console.log('已创建图片数据备份:', backupKey);
+    }
+    
     this.setData({
-      'plant.imageInfos': updatedList.find(p => p.id == this.data.plantId).imageInfos,
+      'plant.imageInfos': currentPlant.imageInfos,
       editingMemoIndex: -1,
       editingMemo: ''
     });
@@ -791,6 +891,278 @@ Page({
       editingMemo: ''
     });
   },
+
+  // 数据恢复功能 - 如果图片信息丢失，尝试从本地存储恢复
+  recoverImageData: function() {
+    const plantList = wx.getStorageSync('plantList') || [];
+    const plant = plantList.find(p => p.id == this.data.plantId);
+    if (!plant) return;
+
+    console.log('尝试恢复图片数据:', plant);
+    
+    // 检查是否有备份数据
+    const backupKey = `plant_backup_${this.data.plantId}`;
+    const backupData = wx.getStorageSync(backupKey);
+    
+    if (backupData && backupData.imageInfos) {
+      console.log('找到备份数据，尝试恢复:', backupData.imageInfos);
+      plant.imageInfos = backupData.imageInfos;
+      
+      // 更新植物列表
+      const updatedList = plantList.map(p => p.id == this.data.plantId ? plant : p);
+      wx.setStorageSync('plantList', updatedList);
+      
+      // 更新页面数据
+      this.setData({ plant: plant });
+      
+      wx.showToast({
+        title: '图片数据已恢复',
+        icon: 'success'
+      });
+    } else {
+      wx.showToast({
+        title: '未找到备份数据',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 强制刷新本地数据 - 从云端重新加载并保存到本地
+  forceRefreshLocalData: function() {
+    wx.showLoading({ title: '正在刷新数据...' });
+    
+    try {
+      const cloudUtils = require('../../utils/cloud_utils.js');
+      if (cloudUtils && cloudUtils.loadPlantList) {
+        cloudUtils.loadPlantList().then(cloudList => {
+          wx.hideLoading();
+          if (cloudList.length > 0) {
+            console.log('从云端加载的数据:', cloudList);
+            
+            // 直接更新本地存储
+            wx.setStorageSync('plantList', cloudList);
+            
+            // 重新加载当前植物数据
+            this.loadPlantDetail(this.data.plantId);
+            
+            // 延迟一点时间让数据完全加载后再显示成功消息
+            setTimeout(() => {
+              wx.showToast({
+                title: '本地数据已刷新',
+                icon: 'success'
+              });
+              
+              // 自动执行诊断
+              setTimeout(() => {
+                this.diagnoseImageData();
+              }, 1000);
+            }, 500);
+          } else {
+            wx.showToast({
+              title: '云端无数据',
+              icon: 'none'
+            });
+          }
+        }).catch((err) => {
+          wx.hideLoading();
+          console.error('强制刷新失败:', err);
+          wx.showToast({
+            title: '刷新失败',
+            icon: 'error'
+          });
+        });
+      } else {
+        wx.hideLoading();
+        wx.showToast({
+          title: '云端服务不可用',
+          icon: 'none'
+        });
+      }
+    } catch (e) {
+      wx.hideLoading();
+      console.error('强制刷新异常:', e);
+      wx.showToast({
+        title: '刷新异常',
+        icon: 'error'
+      });
+    }
+  },
+
+  // 数据诊断功能 - 检查图片数据状态
+  diagnoseImageData: function() {
+    // 强制重新读取本地存储数据
+    const plantList = wx.getStorageSync('plantList') || [];
+    const plant = plantList.find(p => p.id == this.data.plantId);
+    
+    console.log('诊断时读取的本地数据:', {
+      plantListLength: plantList.length,
+      currentPlantId: this.data.plantId,
+      foundPlant: !!plant,
+      plantImages: plant?.images,
+      plantImageInfos: plant?.imageInfos
+    });
+    
+    if (!plant) {
+      wx.showModal({
+        title: '诊断结果',
+        content: '未找到植物数据',
+        showCancel: false
+      });
+      return;
+    }
+
+    const diagnosis = {
+      plantId: plant.id,
+      imagesCount: Array.isArray(plant.images) ? plant.images.length : 0,
+      imageInfosCount: Array.isArray(plant.imageInfos) ? plant.imageInfos.length : 0,
+      images: plant.images || [],
+      imageInfos: plant.imageInfos || [],
+      cloudImages: [],
+      localImages: [],
+      invalidImages: []
+    };
+
+    // 分析图片类型 - 简化判断逻辑
+    if (Array.isArray(plant.images)) {
+      plant.images.forEach((img, index) => {
+        if (typeof img === 'string' && img.length > 0) {
+          if (img.indexOf('cloud://') === 0) {
+            // 云端图片
+            diagnosis.cloudImages.push({ index, path: img, type: 'cloud' });
+          } else {
+            // 所有非cloud://的字符串都视为本地图片
+            let type = 'local';
+            if (img.indexOf('http') === 0 || img.indexOf('https') === 0) {
+              type = 'network';
+            } else if (img.indexOf('file://') === 0 || img.indexOf('wxfile://') === 0) {
+              type = 'system';
+            } else if (img.indexOf('tmp/') === 0 || img.indexOf('temp/') === 0) {
+              type = 'temp';
+            }
+            diagnosis.localImages.push({ index, path: img, type: type });
+          }
+        } else {
+          // 非字符串或空字符串
+          diagnosis.invalidImages.push({ 
+            index, 
+            path: img, 
+            type: typeof img,
+            reason: img === '' ? 'empty' : 'not_string'
+          });
+        }
+      });
+    }
+
+    // 按类型统计本地图片
+    const localImageTypes = {};
+    diagnosis.localImages.forEach(img => {
+      const type = img.type || 'unknown';
+      localImageTypes[type] = (localImageTypes[type] || 0) + 1;
+    });
+    
+    const localTypeText = Object.keys(localImageTypes).length > 0 
+      ? Object.entries(localImageTypes).map(([type, count]) => `${type}: ${count}`).join(', ')
+      : '无';
+
+    const content = `植物ID: ${diagnosis.plantId}
+图片总数: ${diagnosis.imagesCount}
+图片信息数: ${diagnosis.imageInfosCount}
+云端图片: ${diagnosis.cloudImages.length}
+本地图片: ${diagnosis.localImages.length} (${localTypeText})
+无效图片: ${diagnosis.invalidImages.length}
+
+${diagnosis.invalidImages.length > 0 ? '⚠️ 发现无效图片数据' : '✅ 图片数据正常'}`;
+
+    wx.showModal({
+      title: '图片数据诊断',
+      content: content,
+      showCancel: false,
+      success: () => {
+        console.log('详细诊断数据:', diagnosis);
+        // 显示具体的图片路径信息
+        if (diagnosis.images.length > 0) {
+          console.log('图片路径详情:');
+          diagnosis.images.forEach((img, index) => {
+            console.log(`图片 ${index}:`, img);
+          });
+        }
+        if (diagnosis.localImages.length > 0) {
+          console.log('本地图片详情:');
+          diagnosis.localImages.forEach(img => {
+            console.log(`本地图片 ${img.index}:`, img.path, `(${img.type})`);
+          });
+        }
+        if (diagnosis.cloudImages.length > 0) {
+          console.log('云端图片详情:');
+          diagnosis.cloudImages.forEach(img => {
+            console.log(`云端图片 ${img.index}:`, img.path);
+          });
+        }
+      }
+    });
+  },
+
+  // 显示原始数据 - 用于调试
+  showRawData: function() {
+    // 直接检查本地存储
+    const plantList = wx.getStorageSync('plantList') || [];
+    const plant = plantList.find(p => p.id == this.data.plantId);
+    
+    console.log('本地存储检查:', {
+      plantListExists: !!plantList,
+      plantListLength: plantList.length,
+      currentPlantId: this.data.plantId,
+      plantFound: !!plant,
+      allPlantIds: plantList.map(p => p.id)
+    });
+    
+    if (!plant) {
+      wx.showModal({
+        title: '原始数据',
+        content: `未找到植物数据
+植物列表长度: ${plantList.length}
+当前植物ID: ${this.data.plantId}
+所有植物ID: ${plantList.map(p => p.id).join(', ')}`,
+        showCancel: false
+      });
+      return;
+    }
+    
+    const rawData = {
+      plantId: plant.id,
+      images: plant.images,
+      imageInfos: plant.imageInfos,
+      imagesLength: Array.isArray(plant.images) ? plant.images.length : 0,
+      imageInfosLength: Array.isArray(plant.imageInfos) ? plant.imageInfos.length : 0
+    };
+    
+    console.log('原始植物数据:', rawData);
+    
+    // 简化的显示内容
+    const content = `植物ID: ${rawData.plantId}
+图片数组长度: ${rawData.imagesLength}
+图片信息数组长度: ${rawData.imageInfosLength}
+
+图片路径 (前3个):
+${Array.isArray(plant.images) && plant.images.length > 0 
+  ? plant.images.slice(0, 3).map((img, i) => `${i}: ${img}`).join('\n')
+  : '无图片'}
+
+${Array.isArray(plant.images) && plant.images.length > 3 
+  ? `... 还有 ${plant.images.length - 3} 个图片` 
+  : ''}`;
+
+    wx.showModal({
+      title: '原始数据',
+      content: content,
+      showCancel: false,
+      success: () => {
+        console.log('完整原始数据:', plant);
+        console.log('所有图片路径:', plant.images);
+      }
+    });
+  },
+
   
   // V0.3 图片顺序管理功能
   moveImageUp: function(e) {
@@ -844,7 +1216,14 @@ Page({
         if (res.confirm) {
           const plantList = wx.getStorageSync('plantList') || [];
           const target = plantList.find(p => p.id == this.data.plantId) || {};
-          const fileIds = (target.images || []).filter(p => typeof p === 'string' && p.indexOf('cloud://') === 0);
+          
+          // 收集所有需要删除的cloud://文件
+          const imageFileIds = (target.images || []).filter(p => typeof p === 'string' && p.indexOf('cloud://') === 0);
+          const infoFileIds = (target.imageInfos || [])
+            .map(info => info && info.path)
+            .filter(p => typeof p === 'string' && p.indexOf('cloud://') === 0);
+          const allFileIds = [...imageFileIds, ...infoFileIds];
+          
           const newList = plantList.filter(p => p.id != this.data.plantId);
           wx.setStorageSync('plantList', newList);
           // 标记首页需要刷新
@@ -852,8 +1231,9 @@ Page({
           // 先尝试云端文件删除（吞错）
           try {
             const cloudUtils = require('../../utils/cloud_utils.js');
-            if (fileIds.length > 0 && cloudUtils.deleteCloudFiles) {
-              cloudUtils.deleteCloudFiles(fileIds);
+            if (allFileIds.length > 0 && cloudUtils.deleteCloudFiles) {
+              console.log('删除植物时清理云端文件:', allFileIds);
+              cloudUtils.deleteCloudFiles(allFileIds);
             }
           } catch (e) {}
           // 同步数据库（吞错）

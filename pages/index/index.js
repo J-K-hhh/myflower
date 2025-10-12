@@ -90,17 +90,15 @@ Page({
       id: Number(p.id),
       selected: Array.isArray(this.data.selectedPlants) ? this.data.selectedPlants.indexOf(Number(p.id)) > -1 : false
     }));
-    // If no local data, try cloud restore
-    if (plantList.length === 0 && wx.cloud && wx.cloud.database) {
-      // Load per-user list via cloud_utils to ensure openid isolation
+    // 如果本地没有数据，尝试从云端加载（loadPlantList已经处理了本地优先逻辑）
+    if (plantList.length === 0) {
       try {
         const cloudUtils = require('../../utils/cloud_utils.js');
         if (cloudUtils && cloudUtils.loadPlantList) {
           cloudUtils.loadPlantList().then(cloudList => {
             if (cloudList.length > 0) {
-              wx.setStorageSync('plantList', cloudList);
               wx.showToast({ title: this.translate('common', 'storage.restoreSuccess'), icon: 'success' });
-              this.loadPlantData();
+              this.loadPlantData(); // 重新加载，此时本地已有数据
             } else {
               wx.showToast({ title: this.translate('common', 'storage.restoreEmpty'), icon: 'none' });
               this.finishLoad(plantList);
@@ -419,14 +417,28 @@ Page({
     // 记录批量操作历史
     this.recordBatchOperation('watering', selectedPlantNames, timestamp);
     
+    // 先更新本地存储
     wx.setStorageSync('plantList', updatedList);
-    // Persist to cloud database (best-effort)
+    
+    // 异步同步到云端（不阻塞本地操作）
     try {
       const cloudUtils = require('../../utils/cloud_utils.js');
       if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-        cloudUtils.savePlantList(updatedList);
+        setTimeout(() => {
+          cloudUtils.savePlantList(updatedList).then((success) => {
+            if (success) {
+              console.log('批量浇水云端同步成功');
+            } else {
+              console.warn('批量浇水云端同步失败');
+            }
+          }).catch((err) => {
+            console.error('批量浇水云端同步错误:', err);
+          });
+        }, 100);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('批量浇水云端同步异常:', e);
+    }
     
     setTimeout(() => {
       wx.hideLoading();
@@ -466,14 +478,28 @@ Page({
     // 记录批量操作历史
     this.recordBatchOperation('fertilizing', selectedPlantNames, timestamp);
     
+    // 先更新本地存储
     wx.setStorageSync('plantList', updatedList);
-    // Persist to cloud database (best-effort)
+    
+    // 异步同步到云端（不阻塞本地操作）
     try {
       const cloudUtils = require('../../utils/cloud_utils.js');
       if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-        cloudUtils.savePlantList(updatedList);
+        setTimeout(() => {
+          cloudUtils.savePlantList(updatedList).then((success) => {
+            if (success) {
+              console.log('批量施肥云端同步成功');
+            } else {
+              console.warn('批量施肥云端同步失败');
+            }
+          }).catch((err) => {
+            console.error('批量施肥云端同步错误:', err);
+          });
+        }, 100);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('批量施肥云端同步异常:', e);
+    }
     
     setTimeout(() => {
       wx.hideLoading();
