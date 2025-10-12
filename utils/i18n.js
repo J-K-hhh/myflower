@@ -37,6 +37,26 @@ const translations = {
         identityFailed: '无法获取用户身份',
         uploadFailed: '图片上传失败',
         syncFailed: '云同步失败'
+      },
+      reminder: {
+        title: '浇水提醒',
+        description: '设置浇水提醒频率',
+        frequency: {
+          daily: '每天',
+          frequent: '频繁（3天一次）',
+          occasional: '偶尔（7天一次）',
+          off: '关闭'
+        },
+        status: {
+          needsWatering: '小绿植口渴啦！💧',
+          wateredRecently: '小绿植很健康！🌱',
+          noPlants: '暂无植物'
+        },
+        lastWatering: '最近浇水',
+        needsWateringTitle: '需要浇水的植物',
+        noPlantsNeedWatering: '没有植物需要浇水',
+        neverWatered: '从未浇水',
+        daysAgo: '{days}天前'
       }
     },
     index: {
@@ -368,6 +388,26 @@ const translations = {
         identityFailed: 'Unable to authenticate user.',
         uploadFailed: 'Failed to upload image.',
         syncFailed: 'Cloud sync failed.'
+      },
+      reminder: {
+        title: 'Watering Reminder',
+        description: 'Set watering reminder frequency',
+        frequency: {
+          daily: 'Daily',
+          frequent: 'Frequent (3 days)',
+          occasional: 'Occasional (7 days)',
+          off: 'Off'
+        },
+        status: {
+          needsWatering: 'Little plants are thirsty! 💧',
+          wateredRecently: 'Little plants are healthy! 🌱',
+          noPlants: 'No plants'
+        },
+        lastWatering: 'Last watering',
+        needsWateringTitle: 'Plants Need Watering',
+        noPlantsNeedWatering: 'No plants need watering',
+        neverWatered: 'Never watered',
+        daysAgo: '{days} days ago'
       }
     },
     index: {

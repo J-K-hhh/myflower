@@ -50,6 +50,21 @@
   </view>
 
   <view class="section">
+    <view class="section-title">{{i18nCommon.reminder.title}}</view>
+    <view class="setting-item language">
+      <view class="setting-label">{{i18nCommon.reminder.description}}</view>
+      <radio-group bindchange="onReminderFrequencyChange">
+        <view class="language-list">
+          <view class="language-item" wx:for="{{reminderOptions}}" wx:key="value">
+            <radio value="{{item.value}}" checked="{{reminderFrequency === item.value}}" />
+            <text class="language-label">{{item.label}}</text>
+          </view>
+        </view>
+      </radio-group>
+    </view>
+  </view>
+
+  <view class="section">
     <view class="section-title">{{i18n.sections.language}}</view>
     <view class="setting-item language">
       <view class="setting-label">{{i18n.language.description}}</view>

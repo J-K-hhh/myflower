@@ -51,20 +51,12 @@
     </view>
   </view>
 
-  <!-- 添加按钮 -->
-  <view class="add-button" bindtap="goToAdd" wx:if="{{!batchMode}}">
-    <text class="add-icon">+</text>
-  </view>
 
   <!-- 设置按钮 -->
   <view class="settings-button" bindtap="goToSettings" wx:if="{{!batchMode}}">
     <text class="settings-icon">⚙️</text>
   </view>
   
-  <!-- 批量模式按钮 -->
-  <view class="batch-mode-button" bindtap="toggleBatchMode" wx:if="{{!batchMode}}">
-    <text class="batch-icon">📋</text>
-  </view>
   
   <!-- 批量操作按钮组 -->
   <view wx:if="{{batchMode}}" class="batch-actions">
@@ -82,9 +74,34 @@
     </view>
   </view>
   
-  <!-- 批量历史记录按钮 -->
-  <view class="batch-history-button" bindtap="viewBatchHistory" wx:if="{{!batchMode}}">
-    <text class="batch-history-icon">📋</text>
+  <!-- 底部操作栏 -->
+  <view class="bottom-actions" wx:if="{{!batchMode}}">
+    <!-- 左侧按钮组 -->
+    <view class="left-buttons">
+      <!-- 批量浇水按钮 -->
+      <view class="batch-watering-button" bindtap="batchWatering">
+        <text class="batch-watering-icon">💧</text>
+      </view>
+      
+      <!-- 批量历史记录按钮 -->
+      <view class="batch-history-button" bindtap="viewBatchHistory">
+        <text class="batch-history-icon">📊</text>
+      </view>
+      
+      <!-- 提醒状态栏 -->
+      <view wx:if="{{reminderStatus && reminderStatus !== 'noPlants'}}" 
+            class="reminder-status {{reminderStatus === 'needsWatering' ? 'needs-watering' : 'watered-recently'}} {{reminderStatus === 'needsWatering' ? 'clickable' : ''}}"
+            bindtap="{{reminderStatus === 'needsWatering' ? 'showNeedsWateringPlants' : ''}}">
+        <text class="reminder-icon">{{reminderStatus === 'needsWatering' ? '💧' : '✅'}}</text>
+        <text class="reminder-text">{{reminderText}}</text>
+        <text wx:if="{{reminderStatus === 'needsWatering'}}" class="reminder-hint">👆</text>
+      </view>
+    </view>
+    
+    <!-- 右侧添加按钮 -->
+    <view class="add-plant-button" bindtap="goToAdd">
+      <text class="add-icon">+</text>
+    </view>
   </view>
   
   <!-- 批量操作历史弹窗 -->

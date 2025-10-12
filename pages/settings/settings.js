@@ -5,6 +5,7 @@ Page({
     selectedModel: 'baidu',
     maxPhotos: 10,
     maxRecords: 50,
+    reminderFrequency: 'frequent', // 默认3天一次
     models: [
       { id: 'baidu' },
       { id: 'qwen-vl', disabled: true }
@@ -12,6 +13,12 @@ Page({
     languageOptions: [
       { value: 'zh' },
       { value: 'en' }
+    ],
+    reminderOptions: [
+      { value: 'daily', label: 'daily' },
+      { value: 'frequent', label: 'frequent' },
+      { value: 'occasional', label: 'occasional' },
+      { value: 'off', label: 'off' }
     ],
     locationEnabled: false,
     currentLocation: null,
@@ -56,12 +63,19 @@ Page({
       ...option,
       label: commonTexts.languageNames[option.value] || option.value
     }));
+    const reminderOptions = [
+      { value: 'daily', label: commonTexts.reminder.frequency.daily },
+      { value: 'frequent', label: commonTexts.reminder.frequency.frequent },
+      { value: 'occasional', label: commonTexts.reminder.frequency.occasional },
+      { value: 'off', label: commonTexts.reminder.frequency.off }
+    ];
     this.setData({
       i18n: settingsTexts,
       i18nCommon: commonTexts,
       language: language,
       models: models,
-      languageOptions: languageOptions
+      languageOptions: languageOptions,
+      reminderOptions: reminderOptions
     });
   },
 
@@ -86,7 +100,8 @@ Page({
     this.setData({
       selectedModel: selectedModel,
       maxPhotos: settings.maxPhotos || 10,
-      maxRecords: settings.maxRecords || 50
+      maxRecords: settings.maxRecords || 50,
+      reminderFrequency: settings.reminderFrequency || 'frequent' // 默认3天一次
     });
   },
 
@@ -94,7 +109,8 @@ Page({
     const settings = {
       selectedModel: this.data.selectedModel,
       maxPhotos: this.data.maxPhotos,
-      maxRecords: this.data.maxRecords
+      maxRecords: this.data.maxRecords,
+      reminderFrequency: this.data.reminderFrequency
     };
     wx.setStorageSync('appSettings', settings);
     
@@ -133,6 +149,12 @@ Page({
     
     // 清理超出限制的旧记录
     this.cleanupExcessRecords(newMaxRecords);
+  },
+
+  onReminderFrequencyChange: function(e) {
+    this.setData({
+      reminderFrequency: e.detail.value
+    });
   },
 
   cleanupExcessPhotos: function(maxPhotos) {

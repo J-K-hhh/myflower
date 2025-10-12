@@ -4,6 +4,7 @@
   min-height: 100vh;
   position: relative;
   padding-top: 20rpx !important; /* 确保使用自己的padding-top */
+  padding-bottom: 180rpx !important; /* 为底部固定操作栏留出空间 */
 }
 
 .bg-image {
@@ -44,6 +45,116 @@
 }
 
 /* 空状态样式 */
+/* 底部操作栏 */
+.bottom-actions {
+  position: fixed;
+  bottom: 40rpx;
+  left: 40rpx;
+  right: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+  gap: 25rpx;
+}
+
+/* 左侧按钮组 */
+.left-buttons {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 25rpx;
+}
+
+/* 批量浇水按钮样式 */
+.batch-watering-button {
+  width: 100rpx;
+  height: 100rpx;
+  background: linear-gradient(135deg, #6c5ce7 0%, #5f3dc4 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 16rpx rgba(108, 92, 231, 0.4);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  border: 3rpx solid rgba(255, 255, 255, 0.9);
+}
+
+.batch-watering-button:active {
+  transform: scale(0.9);
+}
+
+.batch-watering-icon {
+  color: white;
+  font-size: 40rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 提醒状态样式 */
+.reminder-status {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 18rpx;
+  border-radius: 25rpx;
+  font-size: 24rpx;
+  flex: 1;
+  min-width: 0;
+  max-width: 400rpx;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10rpx);
+  border: 2rpx solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.reminder-status.needs-watering {
+  background: rgba(231, 76, 60, 0.15);
+  color: #ffffff;
+  border: 2rpx solid rgba(231, 76, 60, 0.4);
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+}
+
+.reminder-status.watered-recently {
+  background: rgba(46, 204, 113, 0.15);
+  color: #ffffff;
+  border: 2rpx solid rgba(46, 204, 113, 0.4);
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+}
+
+.reminder-icon {
+  font-size: 28rpx;
+  margin-right: 10rpx;
+  flex-shrink: 0;
+}
+
+.reminder-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  flex: 1;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-hint {
+  font-size: 20rpx;
+  margin-left: 8rpx;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.reminder-status.clickable {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.reminder-status.clickable:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
 .empty-container {
   display: flex;
   flex-direction: column;
@@ -221,27 +332,9 @@
   flex: 1;
 }
 
-/* 添加按钮样式 */
+/* 添加按钮样式（隐藏，使用底部按钮） */
 .add-button {
-  position: fixed;
-  bottom: 50rpx;
-  right: 50rpx;
-  width: 120rpx;
-  height: 120rpx;
-  background: linear-gradient(135deg, #00d4aa 0%, #00a085 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 
-    0 8rpx 32rpx rgba(0, 212, 170, 0.4),
-    0 0 0 4rpx rgba(255, 255, 255, 0.8),
-    0 0 0 8rpx rgba(0, 212, 170, 0.2),
-    0 0 0 16rpx rgba(0, 212, 170, 0.1);
-  z-index: 10;
-  transition: all 0.3s ease;
-  border: 2rpx solid rgba(255, 255, 255, 0.9);
-  animation: gentle-pulse 3s ease-in-out infinite;
+  display: none;
 }
 
 .add-button:active {
@@ -278,6 +371,29 @@
   font-weight: bold;
   text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
   filter: drop-shadow(0 2rpx 4rpx rgba(0, 0, 0, 0.1));
+}
+
+/* 底部添加按钮样式 */
+.add-plant-button {
+  width: 140rpx;
+  height: 140rpx;
+  background: linear-gradient(135deg, #00d4aa 0%, #00a085 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(0, 212, 170, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  border: 4rpx solid rgba(255, 255, 255, 0.9);
+}
+
+.add-plant-button:active {
+  transform: scale(0.9);
+}
+
+.add-plant-button .add-icon {
+  font-size: 56rpx;
 }
 
 /* 设置按钮样式 */
@@ -387,16 +503,7 @@
 }
 
 .batch-mode-button {
-  position: fixed;
-  bottom: 50rpx;
-  left: 50rpx;
-  width: 100rpx;
-  height: 100rpx;
-  background: linear-gradient(135deg, #6c5ce7 0%, #5f3dc4 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: none;
   box-shadow: 
     0 6rpx 24rpx rgba(108, 92, 231, 0.4),
     0 0 0 3rpx rgba(255, 255, 255, 0.8),
@@ -472,9 +579,6 @@
 
 /* V0.3 批量历史记录样式 */
 .batch-history-button {
-  position: fixed;
-  bottom: 50rpx;
-  left: 170rpx;
   width: 80rpx;
   height: 80rpx;
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
@@ -482,12 +586,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
-    0 4rpx 16rpx rgba(255, 107, 107, 0.4),
-    0 0 0 2rpx rgba(255, 255, 255, 0.8);
-  z-index: 10;
+  box-shadow: 0 4rpx 12rpx rgba(255, 107, 107, 0.4);
   transition: all 0.3s ease;
-  border: 2rpx solid rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  border: 3rpx solid rgba(255, 255, 255, 0.9);
 }
 
 .batch-history-button:active {
