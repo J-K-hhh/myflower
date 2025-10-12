@@ -22,6 +22,8 @@ Page({
     // V0.3 图片备忘功能
     editingMemoIndex: -1,
     editingMemo: '',
+    // V0.4 分享功能
+    shareImageUrl: '',
     i18n: i18n.getSection('detail'),
     i18nCommon: i18n.getSection('common'),
     language: i18n.getLanguage()
@@ -177,6 +179,14 @@ Page({
         } catch (e) {}
       }
       this.setData({ plant: plant });
+      // 预生成分享图片
+      this.generateShareImage().then(imageUrl => {
+        this.setData({ shareImageUrl: imageUrl });
+      }).catch(err => {
+        console.error('预生成分享图片失败:', err);
+        // 如果生成失败，使用原始图片
+        this.setData({ shareImageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : '' });
+      });
       // 确保本地视图也可显示 cloud:// 图片（转换为临时URL，但不弹窗）
       this.resolveCloudImagesForReadonly(plant).then((resolved) => {
         this.setData({ plant: resolved });
@@ -896,7 +906,7 @@ Page({
     return {
       title: this.translate('detail', 'share.shareTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
       path: path,
-      imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
+      imageUrl: this.data.shareImageUrl || (plant.images && plant.images.length > 0 ? plant.images[0] : '')
     };
   },
 
@@ -910,11 +920,11 @@ Page({
     return {
       title: this.translate('detail', 'share.momentsTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
       query: query,
-      imageUrl: plant.images && plant.images.length > 0 ? plant.images[0] : ''
+      imageUrl: this.data.shareImageUrl || (plant.images && plant.images.length > 0 ? plant.images[0] : '')
     };
   },
 
-  // 生成方形分享图片（完整显示整张图片，aspectFit 模式）
+  // 生成方形分享图片
   generateShareImage: function () {
     return new Promise((resolve, reject) => {
       const plant = this.data.plant;
@@ -923,38 +933,68 @@ Page({
         return;
       }
 
-      const imageUrl = plant.images[0];
+      let imageUrl = plant.images[0];
       
-      // 先尝试canvas绘制
-      try {
-        const ctx = wx.createCanvasContext('shareCanvas', this);
-        const canvasWidth = 300;
-        const canvasHeight = 300;
-        const dpr = wx.getSystemInfoSync().pixelRatio || 1;
+      // 如果是云存储图片，需要先转换为临时URL
+      if (imageUrl && imageUrl.indexOf('cloud://') === 0) {
+        if (wx.cloud && wx.cloud.getTempFileURL) {
+          wx.cloud.getTempFileURL({
+            fileList: [imageUrl]
+          }).then((res) => {
+            if (res.fileList && res.fileList.length > 0 && res.fileList[0].tempFileURL) {
+              imageUrl = res.fileList[0].tempFileURL;
+              this.drawShareImage(imageUrl, plant, resolve);
+            } else {
+              resolve(imageUrl);
+            }
+          }).catch((err) => {
+            console.error('云存储图片转换异常:', err);
+            resolve(imageUrl);
+          });
+        } else {
+          resolve(imageUrl);
+        }
+      } else {
+        // 直接使用本地图片
+        this.drawShareImage(imageUrl, plant, resolve);
+      }
+    });
+  },
 
-        ctx.scale(dpr, dpr);
+  // 绘制分享图片
+  drawShareImage: function(imageUrl, plant, resolve) {
+    try {
+      const ctx = wx.createCanvasContext('shareCanvas', this);
+      const canvasWidth = 300;
+      const canvasHeight = 300;
+      const dpr = wx.getSystemInfoSync().pixelRatio || 1;
 
-        // 绘制背景
-        ctx.setFillStyle('#4CAF50');
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.scale(dpr, dpr);
 
-        // 获取图片信息
-        wx.getImageInfo({
-          src: imageUrl,
-          success: (info) => {
-            const srcW = info.width;
-            const srcH = info.height;
+      // 绘制背景
+      ctx.setFillStyle('#4CAF50');
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-            // === 计算 aspectFit 缩放 ===
-            const scale = Math.min(canvasWidth / srcW, canvasHeight / srcH);
-            const drawW = srcW * scale;
-            const drawH = srcH * scale;
+      // 获取图片信息
+      wx.getImageInfo({
+        src: imageUrl,
+        success: (info) => {
+          const srcW = info.width;
+          const srcH = info.height;
 
-            // 居中位置
-            const x = (canvasWidth - drawW) / 2;
-            const y = (canvasHeight - drawH) / 2;
+          // 计算 aspectFill 缩放
+          const scale = Math.max(canvasWidth / srcW, canvasHeight / srcH);
+          const drawW = srcW * scale;
+          const drawH = srcH * scale;
 
-            // 绘制整张图片
+          // 居中位置
+          const x = (canvasWidth - drawW) / 2;
+          const y = (canvasHeight - drawH) / 2;
+
+          // 预加载图片
+          const img = wx.createImage();
+          img.onload = () => {
+            // 绘制图片
             ctx.drawImage(imageUrl, x, y, drawW, drawH);
 
             // 绘制文字标题
@@ -969,28 +1009,31 @@ Page({
                 destWidth: canvasWidth * dpr,
                 destHeight: canvasHeight * dpr,
                 success: (res) => {
-                  console.log('Canvas生成分享图片成功');
                   resolve(res.tempFilePath);
                 },
                 fail: (err) => {
                   console.error('生成分享图片失败:', err);
-                  // 如果生成失败，返回原始图片
                   resolve(imageUrl);
                 }
               }, this);
             });
-          },
-          fail: (err) => {
-            console.error('获取图片信息失败:', err);
-            // 如果获取图片信息失败，直接使用原始图片
+          };
+          
+          img.onerror = () => {
+            console.error('图片预加载失败');
             resolve(imageUrl);
-          }
-        });
-      } catch (error) {
-        console.error('Canvas绘制异常:', error);
-        // 如果canvas绘制异常，直接使用原始图片
-        resolve(imageUrl);
-      }
-    });
+          };
+          
+          img.src = imageUrl;
+        },
+        fail: (err) => {
+          console.error('获取图片信息失败:', err);
+          resolve(imageUrl);
+        }
+      });
+    } catch (error) {
+      console.error('Canvas绘制异常:', error);
+      resolve(imageUrl);
+    }
   }
 });

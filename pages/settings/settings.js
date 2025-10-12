@@ -7,7 +7,7 @@ Page({
     maxRecords: 50,
     models: [
       { id: 'baidu' },
-      { id: 'qwen-vl' }
+      { id: 'qwen-vl', disabled: true }
     ],
     languageOptions: [
       { value: 'zh' },
@@ -48,7 +48,8 @@ Page({
       {
         id: 'qwen-vl',
         name: settingsTexts.modelList.qwen.name,
-        description: settingsTexts.modelList.qwen.description
+        description: settingsTexts.modelList.qwen.description,
+        disabled: true
       }
     ];
     const languageOptions = this.data.languageOptions.map(option => ({

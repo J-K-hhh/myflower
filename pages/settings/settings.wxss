@@ -84,6 +84,19 @@
   border-bottom: none;
 }
 
+.model-item.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.model-item.disabled .model-name {
+  color: #999;
+}
+
+.model-item.disabled .model-desc {
+  color: #ccc;
+}
+
 .model-info {
   flex: 1;
 }

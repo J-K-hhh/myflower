@@ -6,7 +6,7 @@
     <view class="section-title">{{i18n.sections.model}}</view>
     <radio-group bindchange="onModelChange">
       <view class="model-list">
-        <view class="model-item" wx:for="{{models}}" wx:key="id">
+        <view class="model-item {{item.disabled ? 'disabled' : ''}}" wx:for="{{models}}" wx:key="id">
           <view class="model-info">
             <view class="model-name">{{item.name}}</view>
             <view class="model-desc">{{item.description}}</view>
@@ -15,6 +15,7 @@
             class="model-radio" 
             value="{{item.id}}"
             checked="{{selectedModel === item.id}}"
+            disabled="{{item.disabled}}"
           />
         </view>
       </view>

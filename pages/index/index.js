@@ -276,8 +276,8 @@ Page({
         icon: 'success',
         duration: 2000
       });
-      this.loadPlantData();
       this.exitBatchMode();
+      this.loadPlantData();
     }, 1000);
   },
   
@@ -323,8 +323,8 @@ Page({
         icon: 'success',
         duration: 2000
       });
-      this.loadPlantData();
       this.exitBatchMode();
+      this.loadPlantData();
     }, 1000);
   },
   
