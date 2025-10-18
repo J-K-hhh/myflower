@@ -81,10 +81,29 @@ App({
   t(namespace, keyPath, params = {}) {
     return i18n.t(namespace, keyPath, params, this.getLanguage())
   },
+
+  // 加载用户资料
+  loadUserProfile: async function() {
+    try {
+      const cloudUtils = require('./utils/cloud_utils.js');
+      const profile = await cloudUtils.getUserProfile();
+      this.globalData.userProfile = profile;
+      return profile;
+    } catch (e) {
+      console.error('[app] loadUserProfile failed:', e);
+      return null;
+    }
+  },
+
+  // 更新用户资料
+  updateUserProfile: function(profile) {
+    this.globalData.userProfile = profile;
+  },
   
   
   globalData: {
     userInfo: null,
+    userProfile: null, // 用户资料信息
     currentEmoji: '🌱',
     currentTitle: '',
     language: 'zh',

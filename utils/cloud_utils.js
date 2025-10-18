@@ -397,3 +397,105 @@ function loadSharedPlantByOwner(ownerOpenId, plantId) {
 }
 
 module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
+
+// User profile management functions
+function getUserProfile() {
+  return new Promise((resolve, reject) => {
+    if (!initCloud()) {
+      console.warn('[cloud_utils] getUserProfile: cloud not available');
+      resolve(null);
+      return;
+    }
+    
+    wx.cloud.callFunction({ 
+      name: 'userProfile', 
+      data: { action: 'get' } 
+    }).then(res => {
+      if (res && res.result && res.result.success) {
+        resolve(res.result.data);
+      } else {
+        console.warn('[cloud_utils] getUserProfile failed:', res.result?.error);
+        resolve(null);
+      }
+    }).catch(err => {
+      console.error('[cloud_utils] getUserProfile error:', err);
+      resolve(null);
+    });
+  });
+}
+
+function saveUserProfile(nickname, avatarUrl = null) {
+  return new Promise((resolve, reject) => {
+    if (!initCloud()) {
+      console.warn('[cloud_utils] saveUserProfile: cloud not available');
+      resolve(false);
+      return;
+    }
+    
+    if (!nickname || nickname.trim() === '') {
+      console.warn('[cloud_utils] saveUserProfile: nickname required');
+      resolve(false);
+      return;
+    }
+    
+    wx.cloud.callFunction({ 
+      name: 'userProfile', 
+      data: { 
+        action: 'create', 
+        nickname: nickname.trim(),
+        avatarUrl: avatarUrl
+      } 
+    }).then(res => {
+      if (res && res.result && res.result.success) {
+        console.log('[cloud_utils] saveUserProfile success:', res.result.message);
+        resolve(true);
+      } else {
+        console.warn('[cloud_utils] saveUserProfile failed:', res.result?.error);
+        resolve(false);
+      }
+    }).catch(err => {
+      console.error('[cloud_utils] saveUserProfile error:', err);
+      resolve(false);
+    });
+  });
+}
+
+function updateUserProfile(nickname, avatarUrl = null) {
+  return new Promise((resolve, reject) => {
+    if (!initCloud()) {
+      console.warn('[cloud_utils] updateUserProfile: cloud not available');
+      resolve(false);
+      return;
+    }
+    
+    if (!nickname || nickname.trim() === '') {
+      console.warn('[cloud_utils] updateUserProfile: nickname required');
+      resolve(false);
+      return;
+    }
+    
+    wx.cloud.callFunction({ 
+      name: 'userProfile', 
+      data: { 
+        action: 'update', 
+        nickname: nickname.trim(),
+        avatarUrl: avatarUrl
+      } 
+    }).then(res => {
+      if (res && res.result && res.result.success) {
+        console.log('[cloud_utils] updateUserProfile success:', res.result.message);
+        resolve(true);
+      } else {
+        console.warn('[cloud_utils] updateUserProfile failed:', res.result?.error);
+        resolve(false);
+      }
+    }).catch(err => {
+      console.error('[cloud_utils] updateUserProfile error:', err);
+      resolve(false);
+    });
+  });
+}
+
+module.exports.getUserProfile = getUserProfile;
+module.exports.saveUserProfile = saveUserProfile;
+module.exports.updateUserProfile = updateUserProfile;

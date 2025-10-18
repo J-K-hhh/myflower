@@ -30,6 +30,7 @@ Page({
   },
   onLoad: function () {
     this.updateTranslations();
+    this.loadUserProfile();
   },
   onShow: function () {
     // 仅在需要时刷新，减少从详情返回时的全量刷新闪烁
@@ -48,6 +49,7 @@ Page({
     try { wx.removeStorageSync('shouldRefreshPlantList'); } catch (e) {}
     this.loadPlantData();
     this.setRandomTitle();
+    this.updateNavigationTitle();
   },
   updateTranslations: function() {
     const app = getApp();
@@ -92,6 +94,36 @@ Page({
   setRandomTitle: function() {
     const app = getApp();
     app.setRandomTitle();
+  },
+
+  // 更新导航栏标题，显示用户昵称
+  updateNavigationTitle: function() {
+    const app = getApp();
+    if (app && app.globalData && app.globalData.userProfile && app.globalData.userProfile.nickname) {
+      const nickname = app.globalData.userProfile.nickname;
+      const emoji = app.globalData.currentEmoji || '🌱';
+      const title = `${emoji} ${nickname}的阳台花园`;
+      wx.setNavigationBarTitle({
+        title: title
+      });
+    } else {
+      // 如果没有用户资料，使用默认标题
+      this.setRandomTitle();
+    }
+  },
+
+  // 加载用户资料
+  loadUserProfile: function() {
+    const app = getApp();
+    if (app && typeof app.loadUserProfile === 'function') {
+      app.loadUserProfile().then(profile => {
+        if (profile) {
+          this.updateNavigationTitle();
+        }
+      }).catch(err => {
+        console.error('加载用户资料失败:', err);
+      });
+    }
   },
   loadPlantData: function () {
     const localList = wx.getStorageSync('plantList') || [];

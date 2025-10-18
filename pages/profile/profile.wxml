@@ -1,0 +1,73 @@
+<view class="container">
+  <!-- 背景图片 -->
+  <image class="bg-image" src="/images/index-bg.png" mode="aspectFill"></image>
+  
+  <view class="header">
+    <text class="title">{{i18n.title}}</text>
+    <text class="subtitle">{{i18n.subtitle}}</text>
+  </view>
+
+  <view class="profile-section">
+    <!-- 头像选择 -->
+    <view class="avatar-section">
+      <text class="label">{{i18n.avatarLabel}}</text>
+      <button 
+        class="avatar-btn" 
+        open-type="chooseAvatar" 
+        bindchooseavatar="onChooseAvatar"
+      >
+        <image 
+          class="avatar" 
+          src="{{avatarUrl || '/images/default-avatar.png'}}" 
+          mode="aspectFill"
+        />
+        <view class="avatar-overlay">
+          <text class="avatar-text">{{i18n.changeAvatar}}</text>
+        </view>
+      </button>
+    </view>
+
+    <!-- 昵称输入 -->
+    <view class="nickname-section">
+      <text class="label">{{i18n.nicknameLabel}}</text>
+      <input 
+        class="nickname-input" 
+        type="nickname" 
+        placeholder="{{i18n.nicknamePlaceholder}}"
+        value="{{nickname}}"
+        bindinput="onNicknameInput"
+        maxlength="20"
+      />
+      <text class="hint">{{i18n.nicknameHint}}</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions">
+    <button 
+      class="save-btn {{loading ? 'loading' : ''}}" 
+      bindtap="saveProfile"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">{{i18n.saveButton}}</text>
+      <text wx:else>{{i18n.saving}}</text>
+    </button>
+    
+    <button 
+      wx:if="{{hasProfile}}" 
+      class="delete-btn" 
+      bindtap="deleteProfile"
+      disabled="{{loading}}"
+    >
+      {{i18n.deleteButton}}
+    </button>
+  </view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-overlay">
+    <view class="loading-content">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{i18nCommon.loading}}</text>
+    </view>
+  </view>
+</view>

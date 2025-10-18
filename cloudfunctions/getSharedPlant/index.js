@@ -28,8 +28,17 @@ exports.main = async (event, context) => {
       return { ok: false, error: 'not_found', debug: { method, listSize: list.length, sampleIds: (list || []).slice(0,5).map(i=>i && i.id), ownerOpenId, plantId } };
     }
     
-    // 3) 直接使用默认昵称
-    const ownerNickname = '朋友';
+    // 3) 获取用户真实昵称
+    let ownerNickname = '朋友'; // 默认昵称
+    try {
+      const userProfileDoc = await db.collection('user_profiles').doc(ownerOpenId).get();
+      if (userProfileDoc.data && userProfileDoc.data.nickname) {
+        ownerNickname = userProfileDoc.data.nickname;
+      }
+    } catch (e) {
+      console.warn('Failed to get user profile:', e);
+      // 使用默认昵称
+    }
     
     // Sanitize: only return fields needed for display
     const safe = {

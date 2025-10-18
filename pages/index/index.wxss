@@ -71,12 +71,12 @@
 .batch-watering-button {
   width: 100rpx;
   height: 100rpx;
-  background: linear-gradient(135deg, #6c5ce7 0%, #5f3dc4 100%);
+  background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6rpx 16rpx rgba(108, 92, 231, 0.4);
+  box-shadow: 0 6rpx 16rpx rgba(0, 151, 167, 0.35);
   transition: all 0.3s ease;
   flex-shrink: 0;
   border: 3rpx solid rgba(255, 255, 255, 0.9);
@@ -645,12 +645,12 @@
 .batch-history-button {
   width: 80rpx;
   height: 80rpx;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  background: linear-gradient(135deg, #607D8B 0%, #90A4AE 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4rpx 12rpx rgba(255, 107, 107, 0.4);
+  box-shadow: 0 4rpx 12rpx rgba(96, 125, 139, 0.35);
   transition: all 0.3s ease;
   flex-shrink: 0;
   border: 3rpx solid rgba(255, 255, 255, 0.9);

@@ -2,52 +2,27 @@
 <view class="container">
   <!-- 背景图片 -->
   <image class="bg-image" src="/images/add-bg.png" mode="aspectFill"></image>
-  <view class="section">
-    <view class="section-title">{{i18n.sections.model}}</view>
-    <radio-group bindchange="onModelChange">
-      <view class="model-list">
-        <view class="model-item {{item.disabled ? 'disabled' : ''}}" wx:for="{{models}}" wx:key="id">
-          <view class="model-info">
-            <view class="model-name">{{item.name}}</view>
-            <view class="model-desc">{{item.description}}</view>
-          </view>
-          <radio 
-            class="model-radio" 
-            value="{{item.id}}"
-            checked="{{selectedModel === item.id}}"
-            disabled="{{item.disabled}}"
-          />
-        </view>
+  
+  <!-- 用户资料区域 -->
+  <view class="section user-profile-section">
+    <view class="section-title">用户资料</view>
+    <view class="user-profile-card" bindtap="goToProfile">
+      <view class="user-avatar">
+        <image 
+          class="avatar-image" 
+          src="{{userProfile.avatarUrl || '/images/default-avatar.png'}}" 
+          mode="aspectFill"
+        />
       </view>
-    </radio-group>
-    <view class="test-button" bindtap="testModelConnection">
-      <text>{{i18n.buttons.testModel}}</text>
+      <view class="user-info">
+        <view class="user-nickname">{{userProfile.nickname || '点击设置昵称'}}</view>
+        <view class="user-desc">{{userProfile.nickname ? '点击修改资料' : '设置您的个人信息'}}</view>
+      </view>
+      <view class="user-arrow">></view>
     </view>
   </view>
 
-  <view class="section">
-    <view class="section-title">{{i18n.sections.storage}}</view>
-    <view class="setting-item">
-      <view class="setting-label">{{i18n.storage.maxPhotos}}</view>
-      <input 
-        class="setting-input" 
-        type="number" 
-        value="{{maxPhotos}}" 
-        bindinput="onMaxPhotosChange"
-        placeholder="10"
-      />
-    </view>
-    <view class="setting-item">
-      <view class="setting-label">{{i18n.storage.maxRecords}}</view>
-      <input 
-        class="setting-input" 
-        type="number" 
-        value="{{maxRecords}}" 
-        bindinput="onMaxRecordsChange"
-        placeholder="50"
-      />
-    </view>
-  </view>
+  
 
   <view class="section">
     <view class="section-title">{{i18nCommon.reminder.title}}</view>
@@ -79,6 +54,7 @@
     </view>
   </view>
 
+
   <view class="section">
     <view class="section-title">{{i18n.sections.location}}</view>
     <view class="setting-item">
@@ -101,6 +77,55 @@
     <view class="section-title">{{i18n.sections.data}}</view>
     <view class="danger-button" bindtap="clearAllData">
       <text>{{i18n.buttons.clearData}}</text>
+    </view>
+  </view>
+
+  <!-- 存储限制（倒数第二） -->
+  <view class="section">
+    <view class="section-title">{{i18n.sections.storage}}</view>
+    <view class="setting-item">
+      <view class="setting-label">{{i18n.storage.maxPhotos}}</view>
+      <input 
+        class="setting-input" 
+        type="number" 
+        value="{{maxPhotos}}" 
+        bindinput="onMaxPhotosChange"
+        placeholder="10"
+      />
+    </view>
+    <view class="setting-item">
+      <view class="setting-label">{{i18n.storage.maxRecords}}</view>
+      <input 
+        class="setting-input" 
+        type="number" 
+        value="{{maxRecords}}" 
+        bindinput="onMaxRecordsChange"
+        placeholder="50"
+      />
+    </view>
+  </view>
+
+  <!-- 模型设置（最后） -->
+  <view class="section">
+    <view class="section-title">{{i18n.sections.model}}</view>
+    <radio-group bindchange="onModelChange">
+      <view class="model-list">
+        <view class="model-item {{item.disabled ? 'disabled' : ''}}" wx:for="{{models}}" wx:key="id">
+          <view class="model-info">
+            <view class="model-name">{{item.name}}</view>
+            <view class="model-desc">{{item.description}}</view>
+          </view>
+          <radio 
+            class="model-radio" 
+            value="{{item.id}}"
+            checked="{{selectedModel === item.id}}"
+            disabled="{{item.disabled}}"
+          />
+        </view>
+      </view>
+    </radio-group>
+    <view class="test-button" bindtap="testModelConnection">
+      <text>{{i18n.buttons.testModel}}</text>
     </view>
   </view>
 

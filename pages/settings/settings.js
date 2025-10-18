@@ -22,6 +22,7 @@ Page({
     ],
     locationEnabled: false,
     currentLocation: null,
+    userProfile: null, // 用户资料
     i18n: i18n.getSection('settings'),
     i18nCommon: i18n.getSection('common'),
     language: i18n.getLanguage()
@@ -31,6 +32,7 @@ Page({
     this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
+    this.loadUserProfile();
   },
 
   onShow: function() {
@@ -38,6 +40,7 @@ Page({
     this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
+    this.loadUserProfile();
     this.setRandomTitle();
   },
 
@@ -390,5 +393,31 @@ Page({
     this.setData({ language: newLanguage });
     this.updateTranslations();
     this.setRandomTitle();
+  },
+
+  // 跳转到用户资料页面
+  goToProfile: function() {
+    wx.navigateTo({
+      url: '/pages/profile/profile'
+    });
+  },
+
+  // 加载用户资料
+  loadUserProfile: function() {
+    const app = getApp();
+    if (app && typeof app.loadUserProfile === 'function') {
+      app.loadUserProfile().then(profile => {
+        this.setData({ userProfile: profile });
+      }).catch(err => {
+        console.error('加载用户资料失败:', err);
+        this.setData({ userProfile: null });
+      });
+    } else {
+      // 如果app没有loadUserProfile方法，直接从globalData获取
+      const app = getApp();
+      if (app && app.globalData && app.globalData.userProfile) {
+        this.setData({ userProfile: app.globalData.userProfile });
+      }
+    }
   }
 });

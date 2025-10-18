@@ -37,6 +37,7 @@ Page({
     const { id, owner, pid } = options || {};
     this.loadSettings();
     this.checkLocationPermission();
+    this.loadUserProfile();
     wx.showShareMenu({ withShareTicket: true, menus: ['shareAppMessage', 'shareTimeline'] });
 
     // 预取 openid（用于分享链接 owner 参数）
@@ -1061,8 +1062,14 @@ Page({
       ? `/pages/detail/detail?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
     
+    // 获取用户昵称
+    const app = getApp();
+    const userProfile = app && app.globalData && app.globalData.userProfile;
+    const nickname = userProfile && userProfile.nickname ? userProfile.nickname : '我';
+    const plantName = plant.aiResult.name || this.translate('common', 'unknownPlant');
+    
     return {
-      title: this.translate('detail', 'share.shareTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
+      title: `${nickname}的植物：${plantName}`,
       path: path,
       imageUrl: this.data.shareImageUrl || (plant.images && plant.images.length > 0 ? plant.images[0] : '')
     };
@@ -1074,8 +1081,15 @@ Page({
     const query = owner && this.data.plantId
       ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
       : `id=${encodeURIComponent(this.data.plantId)}`;
+    
+    // 获取用户昵称
+    const app = getApp();
+    const userProfile = app && app.globalData && app.globalData.userProfile;
+    const nickname = userProfile && userProfile.nickname ? userProfile.nickname : '我';
+    const plantName = plant.aiResult.name || this.translate('common', 'unknownPlant');
+    
     return {
-      title: this.translate('detail', 'share.momentsTitle', { name: plant.aiResult.name || this.translate('common', 'unknownPlant') }),
+      title: `${nickname}的植物：${plantName} - 来自我的阳台花园`,
       query: query,
       imageUrl: this.data.shareImageUrl || (plant.images && plant.images.length > 0 ? plant.images[0] : '')
     };
@@ -1187,6 +1201,20 @@ Page({
       });
     } catch (error) {
       resolve(imageUrl);
+    }
+  },
+
+  // 加载用户资料
+  loadUserProfile: function() {
+    const app = getApp();
+    if (app && typeof app.loadUserProfile === 'function') {
+      app.loadUserProfile().then(profile => {
+        if (profile) {
+          console.log('用户资料加载成功:', profile);
+        }
+      }).catch(err => {
+        console.error('加载用户资料失败:', err);
+      });
     }
   }
 });

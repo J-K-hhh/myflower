@@ -16,6 +16,10 @@ const translations = {
       no: '否',
       notAvailable: '不可用',
       loading: '加载中...',
+      saved: '已保存',
+      saveFailed: '保存失败',
+      loadFailed: '加载失败',
+      deleteFailed: '删除失败',
       listDelimiter: '、',
       languageNames: {
         zh: '中文',
@@ -349,6 +353,22 @@ const translations = {
         location: '位置：纬度{{latitude}}，经度{{longitude}}',
         locationUnknown: '位置：未知'
       }
+    },
+    profile: {
+      title: '用户资料',
+      subtitle: '设置您的个人信息',
+      avatarLabel: '头像',
+      changeAvatar: '更换头像',
+      nicknameLabel: '昵称',
+      nicknamePlaceholder: '请输入您的昵称',
+      nicknameHint: '昵称将显示在您的植物记录中',
+      nicknameRequired: '请输入昵称',
+      saveButton: '保存资料',
+      saving: '保存中...',
+      deleteButton: '删除资料',
+      deleteConfirmTitle: '确认删除',
+      deleteConfirmContent: '确定要删除您的用户资料吗？',
+      deleteSuccess: '资料已删除'
     }
   },
   en: {
@@ -368,6 +388,10 @@ const translations = {
       no: 'No',
       notAvailable: 'Unavailable',
       loading: 'Loading...',
+      saved: 'Saved',
+      saveFailed: 'Save failed',
+      loadFailed: 'Load failed',
+      deleteFailed: 'Delete failed',
       listDelimiter: ', ',
       languageNames: {
         zh: '中文',
@@ -701,6 +725,22 @@ const translations = {
         location: 'Location: Latitude {{latitude}}, Longitude {{longitude}}',
         locationUnknown: 'Location: Unknown'
       }
+    },
+    profile: {
+      title: 'User Profile',
+      subtitle: 'Set your personal information',
+      avatarLabel: 'Avatar',
+      changeAvatar: 'Change Avatar',
+      nicknameLabel: 'Nickname',
+      nicknamePlaceholder: 'Enter your nickname',
+      nicknameHint: 'Your nickname will be shown in your plant records',
+      nicknameRequired: 'Please enter a nickname',
+      saveButton: 'Save Profile',
+      saving: 'Saving...',
+      deleteButton: 'Delete Profile',
+      deleteConfirmTitle: 'Confirm Delete',
+      deleteConfirmContent: 'Are you sure you want to delete your user profile?',
+      deleteSuccess: 'Profile deleted'
     }
   }
 };
