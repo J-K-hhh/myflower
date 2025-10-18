@@ -421,9 +421,16 @@ Page({
       wx.showToast({ title: this.translate('detail', 'errors.nameRequired'), icon: 'none' });
       return;
     }
-    
+    // 确保不会把展示用的 https 临时URL 写回存储
+    const canonicalImages = (this.data.plant.images || []).map(p => this._toCanonicalPath(p));
+    const canonicalInfos = (this.data.plant.imageInfos || []).map(info => ({
+      ...info,
+      path: this._toCanonicalPath(info && info.path)
+    }));
     const plantList = this.savePlantToLocal({
       ...this.data.plant,
+      images: canonicalImages,
+      imageInfos: canonicalInfos,
       aiResult: { ...this.data.plant.aiResult, name: newName }
     });
     
@@ -975,7 +982,13 @@ Page({
       [imageInfos[index], imageInfos[index - 1]] = [imageInfos[index - 1], imageInfos[index]];
     }
     
-    this.updatePlantImages(images, imageInfos);
+    // 规范化路径，避免把展示用 https 存回数据库
+    const canonicalImages = images.map(p => this._toCanonicalPath(p));
+    const canonicalInfos = imageInfos.map(info => ({
+      ...info,
+      path: this._toCanonicalPath(info && info.path)
+    }));
+    this.updatePlantImages(canonicalImages, canonicalInfos);
     wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   
@@ -995,7 +1008,13 @@ Page({
       [newImageInfos[index], newImageInfos[index + 1]] = [newImageInfos[index + 1], newImageInfos[index]];
     }
     
-    this.updatePlantImages(newImages, newImageInfos);
+    // 规范化路径，避免把展示用 https 存回数据库
+    const canonicalImages = newImages.map(p => this._toCanonicalPath(p));
+    const canonicalInfos = newImageInfos.map(info => ({
+      ...info,
+      path: this._toCanonicalPath(info && info.path)
+    }));
+    this.updatePlantImages(canonicalImages, canonicalInfos);
     wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   
