@@ -466,10 +466,6 @@ Page({
       });
       
       let reminderText = this.translate('common', 'reminder.status.needsWatering');
-      if (lastWateringTs != null) {
-        const dateStr = new Date(lastWateringTs).toLocaleDateString();
-        reminderText += ` - ${this.translate('common', 'lastWatering')}: ${dateStr}`;
-      }
       
       this.setData({
         reminderStatus: 'needsWatering',

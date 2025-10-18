@@ -64,6 +64,7 @@
   align-items: center;
   flex: 1;
   gap: 25rpx;
+  overflow: hidden; /* 防止撑开，保证右侧+号不被挤出 */
 }
 
 /* 批量浇水按钮样式 */
@@ -99,8 +100,8 @@
   border-radius: 25rpx;
   font-size: 24rpx;
   flex: 1;
-  min-width: 0;
-  max-width: 400rpx;
+  min-width: 0; /* 允许在flex容器中收缩 */
+  max-width: 100%; /* 让文本在可用空间内省略 */
   font-weight: 700;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10rpx);
