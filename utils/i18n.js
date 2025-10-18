@@ -56,7 +56,8 @@ const translations = {
         needsWateringTitle: '需要浇水的植物',
         noPlantsNeedWatering: '没有植物需要浇水',
         neverWatered: '从未浇水',
-        daysAgo: '{days}天前'
+        neverWateredCute: '还没有被浇过水呢～',
+        daysAgo: '{{days}}天前'
       }
     },
     index: {
@@ -407,7 +408,8 @@ const translations = {
         needsWateringTitle: 'Plants Need Watering',
         noPlantsNeedWatering: 'No plants need watering',
         neverWatered: 'Never watered',
-        daysAgo: '{days} days ago'
+        neverWateredCute: "Hasn't been watered yet~",
+        daysAgo: '{{days}} days ago'
       }
     },
     index: {

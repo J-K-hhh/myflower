@@ -411,53 +411,63 @@ Page({
         reminderDays = 3;
     }
 
-    // 检查每株植物的最后浇水时间
-    const now = new Date();
+    // 工具：获取植物最近一次浇水的时间戳（毫秒）
+    const getLastWateringTs = (plant) => {
+      const wh = Array.isArray(plant.wateringHistory) ? plant.wateringHistory : [];
+      if (wh.length > 0) {
+        // 历史按 unshift 插入，索引0为最新
+        const entry = wh[0];
+        const ts = entry && (entry.timestamp || entry.time || (entry.date ? new Date(entry.date).getTime() : null));
+        if (ts && !isNaN(ts)) return Number(ts);
+      }
+      if (plant.lastWateringDate) {
+        const ts = new Date(plant.lastWateringDate).getTime();
+        if (!isNaN(ts)) return ts;
+      }
+      return null;
+    };
+
+    const now = Date.now();
     let needsWateringCount = 0;
-    let totalPlants = plantList.length;
-    let needsWateringPlants = []; // 存储需要浇水的植物信息
+    const needsWateringPlants = [];
 
     plantList.forEach(plant => {
-      if (plant.wateringHistory && plant.wateringHistory.length > 0) {
-        // 获取最后一次浇水时间
-        const lastWatering = new Date(plant.wateringHistory[plant.wateringHistory.length - 1].time);
-        const daysSinceWatering = Math.floor((now - lastWatering) / (1000 * 60 * 60 * 24));
-        
-        if (daysSinceWatering >= reminderDays) {
-          needsWateringCount++;
-          needsWateringPlants.push({
-            id: plant.id,
-            name: plant.aiResult?.name || this.translate('common', 'unknownPlant'),
-            daysSinceWatering: daysSinceWatering
-          });
-        }
-      } else {
-        // 没有浇水记录，需要浇水
+      const lastTs = getLastWateringTs(plant);
+      if (lastTs == null) {
+        // 没有任何浇水记录，视为需要浇水
         needsWateringCount++;
         needsWateringPlants.push({
           id: plant.id,
           name: plant.aiResult?.name || this.translate('common', 'unknownPlant'),
           daysSinceWatering: '∞'
         });
+        return;
+      }
+      const daysSince = Math.floor((now - lastTs) / (1000 * 60 * 60 * 24));
+      if (daysSince >= reminderDays) {
+        needsWateringCount++;
+        needsWateringPlants.push({
+          id: plant.id,
+          name: plant.aiResult?.name || this.translate('common', 'unknownPlant'),
+          daysSinceWatering: daysSince
+        });
       }
     });
 
     // 设置提醒状态和文本
     if (needsWateringCount > 0) {
-      // 找到最近一次浇水日期
-      let lastWateringDate = null;
+      // 找到最近一次浇水日期（全局最大）
+      let lastWateringTs = null;
       plantList.forEach(plant => {
-        if (plant.wateringHistory && plant.wateringHistory.length > 0) {
-          const lastWatering = new Date(plant.wateringHistory[plant.wateringHistory.length - 1].time);
-          if (!lastWateringDate || lastWatering > lastWateringDate) {
-            lastWateringDate = lastWatering;
-          }
+        const t = getLastWateringTs(plant);
+        if (t != null) {
+          if (lastWateringTs == null || t > lastWateringTs) lastWateringTs = t;
         }
       });
       
       let reminderText = this.translate('common', 'reminder.status.needsWatering');
-      if (lastWateringDate && !isNaN(lastWateringDate.getTime())) {
-        const dateStr = lastWateringDate.toLocaleDateString();
+      if (lastWateringTs != null) {
+        const dateStr = new Date(lastWateringTs).toLocaleDateString();
         reminderText += ` - ${this.translate('common', 'lastWatering')}: ${dateStr}`;
       }
       
@@ -467,20 +477,18 @@ Page({
         needsWateringPlants: needsWateringPlants // 存储需要浇水的植物列表
       });
     } else {
-      // 找到最近一次浇水日期
-      let lastWateringDate = null;
+      // 找到最近一次浇水日期（全局最大）
+      let lastWateringTs = null;
       plantList.forEach(plant => {
-        if (plant.wateringHistory && plant.wateringHistory.length > 0) {
-          const lastWatering = new Date(plant.wateringHistory[plant.wateringHistory.length - 1].time);
-          if (!lastWateringDate || lastWatering > lastWateringDate) {
-            lastWateringDate = lastWatering;
-          }
+        const t = getLastWateringTs(plant);
+        if (t != null) {
+          if (lastWateringTs == null || t > lastWateringTs) lastWateringTs = t;
         }
       });
       
       let reminderText = this.translate('common', 'reminder.status.wateredRecently');
-      if (lastWateringDate && !isNaN(lastWateringDate.getTime())) {
-        const dateStr = lastWateringDate.toLocaleDateString();
+      if (lastWateringTs != null) {
+        const dateStr = new Date(lastWateringTs).toLocaleDateString();
         reminderText += ` - ${this.translate('common', 'lastWatering')}: ${dateStr}`;
       }
       
@@ -503,10 +511,16 @@ Page({
     }
 
     const plantNames = this.data.needsWateringPlants.map(plant => {
-      const daysText = plant.daysSinceWatering === '∞' 
-        ? this.translate('common', 'reminder.neverWatered')
-        : this.translate('common', 'reminder.daysAgo', { days: plant.daysSinceWatering });
-      return `${plant.name} (${daysText})`;
+      let daysText = '';
+      if (plant.daysSinceWatering === '∞') {
+        daysText = this.translate('common', 'reminder.neverWateredCute');
+      } else {
+        const d = Number(plant.daysSinceWatering);
+        daysText = isNaN(d)
+          ? ''
+          : this.translate('common', 'reminder.daysAgo', { days: d });
+      }
+      return `${plant.name}（${daysText}）`;
     }).join('\n');
 
     wx.showModal({
