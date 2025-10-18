@@ -17,18 +17,9 @@
               <text class="action-btn-inline delete" bindtap="deleteImage" data-index="{{index}}">{{i18n.image.delete}}</text>
             </view>
           </view>
-          <!-- 编辑备忘模式 - 仅在非分享模式下显示 -->
-          <view wx:if="{{editingMemoIndex === index && !readonlyShareView}}" class="memo-edit-container">
-            <textarea class="memo-edit-input" 
-                      value="{{editingMemo}}" 
-                      bindinput="onMemoInput" 
-                      placeholder="{{i18n.image.memoPlaceholder}}"
-                      maxlength="100"
-                      auto-height="true"></textarea>
-            <view class="memo-edit-actions">
-              <text class="memo-btn save" bindtap="saveImageMemo">{{i18n.image.memoSave}}</text>
-              <text class="memo-btn cancel" bindtap="cancelMemoEdit">{{i18n.image.memoCancel}}</text>
-            </view>
+          <!-- 编辑备忘模式占位（提示正在编辑），实际编辑在全屏面板 -->
+          <view wx:if="{{editingMemoIndex === index && !readonlyShareView}}" class="memo-editing-indicator">
+            <text>{{i18n.image.memoEditing || '正在编辑备忘…'}}</text>
           </view>
           <!-- 显示备忘模式 -->
           <view wx:elif="{{plant.imageInfos && plant.imageInfos[index] && plant.imageInfos[index].memo}}" 
@@ -54,6 +45,35 @@
       </view>
     </swiper-item>
   </swiper>
+
+  <!-- 全屏备忘编辑面板（更友好的编辑体验） -->
+  <view wx:if="{{editingMemoIndex >= 0 && !readonlyShareView}}" class="memo-editor-modal" catchtouchmove="true">
+    <view class="memo-editor-panel" catchtap="stopPropagation">
+      <view class="memo-editor-header">
+        <text class="memo-editor-title">{{i18n.image.memoTitle || '编辑备忘'}}</text>
+        <text class="memo-editor-close" bindtap="cancelMemoEdit">✕</text>
+      </view>
+      <textarea class="memo-editor-input"
+                value="{{editingMemo}}"
+                bindinput="onMemoInput"
+                placeholder="{{i18n.image.memoPlaceholder}}"
+                maxlength="500"
+                focus="true"
+                auto-height="true"
+                show-confirm-bar="true"
+                adjust-position="false"
+                cursor-spacing="40"></textarea>
+      <view class="memo-editor-footer">
+        <text class="memo-char-count">{{memoCharCount}}/500</text>
+        <view class="memo-editor-actions">
+          <button class="memo-btn cancel" size="mini" bindtap="cancelMemoEdit">{{i18n.image.memoCancel}}</button>
+          <button class="memo-btn save" type="primary" size="mini" bindtap="saveImageMemo">{{i18n.image.memoSave}}</button>
+        </view>
+      </view>
+      <!-- 键盘高度占位，避免遮挡 -->
+      <view style="height: {{keyboardHeight}}px;"></view>
+    </view>
+  </view>
 
   <view class="content-box">
     <!-- 数据恢复按钮 - 仅在图片信息丢失时显示 -->

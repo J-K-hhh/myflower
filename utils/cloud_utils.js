@@ -3,6 +3,11 @@ const i18n = require('./i18n.js');
 let cloudReady = false;
 let currentOpenId = '';
 
+// In-memory cache for temp file URLs to reduce repeated calls
+// Structure: { [fileID]: { url: string, expiresAt: number } }
+const _tempUrlCache = {};
+const DEFAULT_TEMP_URL_TTL = 12 * 60 * 60 * 1000; // 12 hours
+
 function translate(namespace, keyPath, params = {}) {
   try {
     const app = getApp();
@@ -110,11 +115,69 @@ function getTempUrls(fileIdList) {
   });
 }
 
+// Cached version returning a map from fileID => tempURL
+function getTempUrlsCached(fileIdList) {
+  return new Promise((resolve) => {
+    try {
+      if (!Array.isArray(fileIdList) || fileIdList.length === 0) {
+        resolve({});
+        return;
+      }
+      if (!initCloud() || !wx.cloud.getTempFileURL) {
+        resolve({});
+        return;
+      }
+
+      const now = Date.now();
+      const ids = Array.from(new Set(
+        fileIdList.filter(id => typeof id === 'string' && id.indexOf('cloud://') === 0)
+      ));
+
+      const hitMap = {};
+      const misses = [];
+      ids.forEach(id => {
+        const rec = _tempUrlCache[id];
+        if (rec && rec.url && typeof rec.expiresAt === 'number' && rec.expiresAt > now) {
+          hitMap[id] = rec.url;
+        } else {
+          misses.push(id);
+        }
+      });
+
+      if (misses.length === 0) {
+        resolve(hitMap);
+        return;
+      }
+
+      wx.cloud.getTempFileURL({ fileList: misses })
+        .then(res => {
+          const outMap = { ...hitMap };
+          const list = (res && res.fileList) || [];
+          list.forEach(item => {
+            if (item && item.fileID && item.tempFileURL) {
+              outMap[item.fileID] = item.tempFileURL;
+              _tempUrlCache[item.fileID] = {
+                url: item.tempFileURL,
+                // Heuristic TTL; WeChat returns valid temp URLs typically within a day
+                expiresAt: now + DEFAULT_TEMP_URL_TTL
+              };
+            }
+          });
+          resolve(outMap);
+        })
+        .catch(() => resolve(hitMap));
+    } catch (e) {
+      resolve({});
+    }
+  });
+}
+
 module.exports = {
   initCloud,
   isCloudAvailable,
   uploadImage,
-  getTempUrls
+  getTempUrls,
+  getTempUrlsCached
 };
 
 // Cloud database helpers for persisting plant list
@@ -334,4 +397,3 @@ function loadSharedPlantByOwner(ownerOpenId, plantId) {
 }
 
 module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
-

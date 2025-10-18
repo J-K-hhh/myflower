@@ -354,15 +354,7 @@ Page({
     plantList.unshift(newPlant);
     wx.setStorageSync('plantList', plantList);
     console.log('[add] local saved, total count:', plantList.length);
-    // Persist to cloud database (best-effort)
-    try {
-      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-        cloudUtils.savePlantList(plantList).then((ok) => {
-          console.log('[add] cloud save returned:', ok);
-        });
-      }
-    } catch (e) {}
-    // Ensure cloud save is flushed before leaving (best-effort, with short timeout)
+    // Persist to cloud database once (best-effort, with short timeout)
     const ensurePersist = new Promise((resolve) => {
       try {
         if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {

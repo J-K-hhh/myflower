@@ -1,4 +1,98 @@
 /**pages/detail/detail.wxss**/
+/* 新的图片备忘编辑 UI */
+.memo-editing-indicator {
+  position: absolute;
+  bottom: 16rpx;
+  left: 16rpx;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  padding: 8rpx 14rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  z-index: 3;
+}
+
+.memo-editor-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.memo-editor-panel {
+  width: 100%;
+  max-height: 82vh;
+  background: #fff;
+  border-top-left-radius: 20rpx;
+  border-top-right-radius: 20rpx;
+  padding: 20rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.memo-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.memo-editor-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.memo-editor-close {
+  font-size: 34rpx;
+  color: #7f8c8d;
+  padding: 8rpx 10rpx;
+}
+
+.memo-editor-input {
+  width: 100%;
+  min-height: 220rpx;
+  max-height: 52vh;
+  font-size: 30rpx;
+  line-height: 1.6;
+  color: #2c3e50;
+  background: #f9fbfc;
+  border: 2rpx solid #e6ecf1;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  box-sizing: border-box;
+}
+
+.memo-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+
+.memo-char-count {
+  font-size: 24rpx;
+  color: #7f8c8d;
+}
+
+.memo-editor-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.memo-btn.save {
+  background: #00D4AA;
+  color: #fff;
+  border: none;
+}
+
+.memo-btn.cancel {
+  background: #ecf0f1;
+  color: #2c3e50;
+  border: none;
+}
 .container {
   background: #f5f5f5;
   min-height: 100vh;

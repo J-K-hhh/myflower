@@ -22,11 +22,14 @@ Page({
     // V0.3 图片备忘功能
     editingMemoIndex: -1,
     editingMemo: '',
+    memoCharCount: 0,
     // V0.4 分享功能
     shareImageUrl: '',
     i18n: i18n.getSection('detail'),
     i18nCommon: i18n.getSection('common'),
-    language: i18n.getLanguage()
+    language: i18n.getLanguage(),
+    // 键盘与自动保存
+    keyboardHeight: 0
   },
 
   onLoad: function (options) {
@@ -46,6 +49,16 @@ Page({
       } else if (app && app.openid) {
         this.setData({ shareOwnerOpenId: app.openid });
       }
+    } catch (e) {}
+
+    // 监听键盘高度变化，避免遮挡编辑面板
+    try {
+      wx.onKeyboardHeightChange && wx.onKeyboardHeightChange((res) => {
+        const h = res && res.height ? res.height : 0;
+        if (this.data.editingMemoIndex >= 0) {
+          this.setData({ keyboardHeight: h });
+        }
+      });
     } catch (e) {}
 
     if (owner && pid) {
@@ -73,6 +86,11 @@ Page({
     this.loadSettings();
     this.checkLocationPermission();
     this.setRandomTitle();
+  },
+
+  onUnload: function() {
+    try { wx.offKeyboardHeightChange && wx.offKeyboardHeightChange(); } catch (e) {}
+    clearTimeout(this._memoAutoSaveTid);
   },
 
   updateTranslations: function() {
@@ -236,46 +254,61 @@ Page({
 
   // 转换 cloud:// 图片为临时URL用于显示
   convertCloudImagesForDisplay: function(plant) {
-    const hasCloudImages = Array.isArray(plant.images) && plant.images.some(img => 
+    const hasCloudImages = Array.isArray(plant.images) && plant.images.some(img =>
       typeof img === 'string' && img.indexOf('cloud://') === 0
     );
-    
-    if (hasCloudImages && wx.cloud && wx.cloud.getTempFileURL) {
-      const cloudIds = plant.images.filter(img => typeof img === 'string' && img.indexOf('cloud://') === 0);
-      const infoIds = (plant.imageInfos || []).map(i => i && i.path).filter(path => 
-        typeof path === 'string' && path.indexOf('cloud://') === 0
-      );
-      const fileList = Array.from(new Set([...cloudIds, ...infoIds]));
-      
-      wx.cloud.getTempFileURL({ fileList }).then((res) => {
-        const map = {};
-        (res.fileList || []).forEach(i => { 
-          if (i && i.fileID && i.tempFileURL) { 
-            map[i.fileID] = i.tempFileURL;
-          }
-        });
-        
-        // 创建显示用的数据副本
-        const displayPlant = { ...plant };
-        if (Array.isArray(displayPlant.images)) {
-          displayPlant.images = displayPlant.images.map(path => 
-            (typeof path === 'string' && map[path]) ? map[path] : path
-          );
-        }
-        if (Array.isArray(displayPlant.imageInfos)) {
-          displayPlant.imageInfos = displayPlant.imageInfos.map(info => {
-            if (info && typeof info.path === 'string' && map[info.path]) {
-              return { ...info, path: map[info.path] };
-            }
-            return info;
+
+    if (hasCloudImages) {
+      try {
+        const cloudUtils = require('../../utils/cloud_utils.js');
+        const cloudIds = plant.images.filter(img => typeof img === 'string' && img.indexOf('cloud://') === 0);
+        const infoIds = (plant.imageInfos || []).map(i => i && i.path).filter(path =>
+          typeof path === 'string' && path.indexOf('cloud://') === 0
+        );
+        const fileList = Array.from(new Set([...cloudIds, ...infoIds]));
+
+        cloudUtils.getTempUrlsCached(fileList).then((map) => {
+          // 建立反向映射：tempURL -> fileID，供后续保存时还原
+          this._tempUrlReverseMap = this._tempUrlReverseMap || {};
+          Object.keys(map).forEach(fid => {
+            const url = map[fid];
+            this._tempUrlReverseMap[url] = fid;
           });
-        }
-        
-        this.setData({ plant: displayPlant });
-      }).catch((err) => {
-        console.error('云存储访问失败:', err);
-      });
+
+          // 创建显示用的数据副本
+          const displayPlant = { ...plant };
+          if (Array.isArray(displayPlant.images)) {
+            displayPlant.images = displayPlant.images.map(path =>
+              (typeof path === 'string' && map[path]) ? map[path] : path
+            );
+          }
+          if (Array.isArray(displayPlant.imageInfos)) {
+            displayPlant.imageInfos = displayPlant.imageInfos.map(info => {
+              if (info && typeof info.path === 'string' && map[info.path]) {
+                return { ...info, path: map[info.path] };
+              }
+              return info;
+            });
+          }
+
+          this.setData({ plant: displayPlant });
+        }).catch((err) => {
+          console.error('云存储访问失败:', err);
+        });
+      } catch (e) {
+        // ignore
+      }
     }
+  },
+
+  // 将展示用的 https 图片还原为 cloud 文件ID（若可）
+  _toCanonicalPath: function(path) {
+    if (!path || typeof path !== 'string') return path;
+    if (path.indexOf('cloud://') === 0) return path;
+    if (this._tempUrlReverseMap && this._tempUrlReverseMap[path]) {
+      return this._tempUrlReverseMap[path];
+    }
+    return path;
   },
 
   // 加载分享的植物数据
@@ -566,6 +599,7 @@ Page({
     
     wx.setStorageSync('plantList', updatedList);
     this.syncToCloud(updatedList);
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     
     const updatedPlant = updatedList.find(p => p.id == this.data.plantId);
     this.setData({
@@ -575,6 +609,11 @@ Page({
     });
     
     wx.showToast({ title: this.translate('detail', 'toast.photoAdded'), icon: 'success' });
+
+    // 刷新展示用临时URL
+    if (updatedPlant) {
+      this.convertCloudImagesForDisplay(updatedPlant);
+    }
   },
 
   // 设置封面图片
@@ -593,7 +632,13 @@ Page({
     [newImages[0], newImages[index]] = [newImages[index], newImages[0]];
     [newImageInfos[0], newImageInfos[index]] = [newImageInfos[index], newImageInfos[0]];
     
-    this.updatePlantImages(newImages, newImageInfos);
+    // 规范化路径（将展示用的 https 转回 cloudID）
+    const canonicalImages = newImages.map(p => this._toCanonicalPath(p));
+    const canonicalInfos = newImageInfos.map(info => ({
+      ...info,
+      path: this._toCanonicalPath(info && info.path)
+    }));
+    this.updatePlantImages(canonicalImages, canonicalInfos);
     wx.showToast({ title: this.translate('detail', 'image.setCoverSuccess'), icon: 'success' });
   },
 
@@ -613,12 +658,16 @@ Page({
       confirmText: this.translate('detail', 'image.delete'),
       success: (res) => {
         if (res.confirm) {
-          const removedPath = images[index];
+          const removedPath = this._toCanonicalPath(images[index]);
           const removedImageInfo = (this.data.plant.imageInfos || [])[index];
+          const removedInfoPath = this._toCanonicalPath(removedImageInfo && removedImageInfo.path);
           const newImages = images.filter((_, i) => i !== index);
           const newImageInfos = (this.data.plant.imageInfos || []).filter((_, i) => i !== index);
           
-          this.updatePlantImages(newImages, newImageInfos);
+          // 规范化路径再写入
+          const canonicalImages = newImages.map(p => this._toCanonicalPath(p));
+          const canonicalInfos = newImageInfos.map(info => ({ ...info, path: this._toCanonicalPath(info && info.path) }));
+          this.updatePlantImages(canonicalImages, canonicalInfos);
           wx.showToast({ title: this.translate('detail', 'image.deleteSuccess'), icon: 'success' });
           
           // 清理云端文件
@@ -626,8 +675,8 @@ Page({
           if (removedPath && removedPath.indexOf('cloud://') === 0) {
             filesToDelete.push(removedPath);
           }
-          if (removedImageInfo && removedImageInfo.path && removedImageInfo.path.indexOf('cloud://') === 0) {
-            filesToDelete.push(removedImageInfo.path);
+          if (removedInfoPath && removedInfoPath.indexOf('cloud://') === 0) {
+            filesToDelete.push(removedInfoPath);
           }
           
           if (filesToDelete.length > 0 && cloudUtils.deleteCloudFiles) {
@@ -654,11 +703,18 @@ Page({
     
     wx.setStorageSync('plantList', updatedList);
     this.syncToCloud(updatedList);
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     
     this.setData({
       'plant.images': newImages,
       'plant.imageInfos': newImageInfos || this.data.plant.imageInfos
     });
+
+    // 刷新展示用临时URL，避免把 cloud:// 直接渲染
+    const updatedPlant = updatedList.find(p => p.id == this.data.plantId);
+    if (updatedPlant) {
+      this.convertCloudImagesForDisplay(updatedPlant);
+    }
   },
 
   // 更新植物数据
@@ -673,6 +729,7 @@ Page({
     
     wx.setStorageSync('plantList', updatedList);
     this.syncToCloud(updatedList);
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     
     this.setData({ [`plant.${field}`]: value });
     wx.showToast({ title: successMsg, icon: 'success' });
@@ -705,6 +762,7 @@ Page({
     
     wx.setStorageSync('plantList', updatedList);
     this.syncToCloud(updatedList);
+    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
     
     const updatedPlant = updatedList.find(p => p.id == this.data.plantId);
     this.setData({
@@ -794,12 +852,19 @@ Page({
                        this.data.plant.imageInfos[index].memo : '';
     this.setData({
       editingMemoIndex: index,
-      editingMemo: currentMemo
+      editingMemo: currentMemo,
+      memoCharCount: (currentMemo || '').length
     });
   },
   
   onMemoInput: function(e) {
-    this.setData({ editingMemo: e.detail.value });
+    const val = e.detail.value || '';
+    this.setData({ editingMemo: val, memoCharCount: val.length });
+    // 自动保存（防抖）
+    clearTimeout(this._memoAutoSaveTid);
+    this._memoAutoSaveTid = setTimeout(() => {
+      this.backgroundSaveMemo(true); // 静默后台保存，不关闭面板
+    }, 800);
   },
   
   saveImageMemo: function() {
@@ -828,17 +893,70 @@ Page({
     this.setData({
       'plant.imageInfos': currentPlant.imageInfos,
       editingMemoIndex: -1,
-      editingMemo: ''
+      editingMemo: '',
+      memoCharCount: 0
     });
     
     wx.showToast({ title: this.translate('detail', 'image.memoSaved'), icon: 'success' });
   },
   
+  // 取消也自动保存（更稳妥）
   cancelMemoEdit: function() {
-    this.setData({
-      editingMemoIndex: -1,
-      editingMemo: ''
+    this.autoSaveAndClose(false);
+  },
+
+  // 自动保存并关闭（silent 控制是否静默不提示）
+  autoSaveAndClose: function(silent = true) {
+    const index = this.data.editingMemoIndex;
+    if (index < 0) return;
+    const memo = (this.data.editingMemo || '').trim();
+    const plantList = wx.getStorageSync('plantList') || [];
+    const updatedList = plantList.map(plant => {
+      if (plant.id == this.data.plantId) {
+        const updatedPlant = { ...plant };
+        if (!updatedPlant.imageInfos) updatedPlant.imageInfos = [];
+        if (updatedPlant.imageInfos[index]) {
+          updatedPlant.imageInfos[index] = { ...updatedPlant.imageInfos[index], memo: memo };
+        }
+        return updatedPlant;
+      }
+      return plant;
     });
+    wx.setStorageSync('plantList', updatedList);
+    this.syncToCloud(updatedList);
+    const currentPlant = updatedList.find(p => p.id == this.data.plantId) || {};
+    this.setData({
+      'plant.imageInfos': currentPlant.imageInfos || [],
+      editingMemoIndex: -1,
+      editingMemo: '',
+      memoCharCount: 0,
+      keyboardHeight: 0
+    });
+    if (!silent) {
+      wx.showToast({ title: this.translate('detail', 'image.memoSaved') || '已保存', icon: 'success' });
+    }
+  },
+
+  // 后台保存：仅更新本地，不关闭编辑面板，不提示
+  backgroundSaveMemo: function(silent = true) {
+    const index = this.data.editingMemoIndex;
+    if (index < 0) return;
+    const memo = (this.data.editingMemo || '').trim();
+    const plantList = wx.getStorageSync('plantList') || [];
+    const updatedList = plantList.map(plant => {
+      if (plant.id == this.data.plantId) {
+        const updatedPlant = { ...plant };
+        if (!updatedPlant.imageInfos) updatedPlant.imageInfos = [];
+        if (updatedPlant.imageInfos[index]) {
+          updatedPlant.imageInfos[index] = { ...updatedPlant.imageInfos[index], memo: memo };
+        }
+        return updatedPlant;
+      }
+      return plant;
+    });
+    wx.setStorageSync('plantList', updatedList);
+    const currentPlant = updatedList.find(p => p.id == this.data.plantId) || {};
+    this.setData({ 'plant.imageInfos': currentPlant.imageInfos || [] });
   },
 
   // 图片顺序管理
@@ -955,22 +1073,15 @@ Page({
 
       let imageUrl = plant.images[0];
       
-      // 如果是云存储图片，需要先转换为临时URL
+      // 如果是云存储图片，需要先转换为临时URL（使用缓存）
       if (imageUrl && imageUrl.indexOf('cloud://') === 0) {
-        if (wx.cloud && wx.cloud.getTempFileURL) {
-          wx.cloud.getTempFileURL({
-            fileList: [imageUrl]
-          }).then((res) => {
-            if (res.fileList && res.fileList.length > 0 && res.fileList[0].tempFileURL) {
-              imageUrl = res.fileList[0].tempFileURL;
-              this.drawShareImage(imageUrl, plant, resolve);
-            } else {
-              resolve(imageUrl);
-            }
-          }).catch(() => {
-            resolve(imageUrl);
-          });
-        } else {
+        try {
+          const cloudUtils = require('../../utils/cloud_utils.js');
+          cloudUtils.getTempUrlsCached([imageUrl]).then((map) => {
+            const url = map[imageUrl] || imageUrl;
+            this.drawShareImage(url, plant, resolve);
+          }).catch(() => resolve(imageUrl));
+        } catch (e) {
           resolve(imageUrl);
         }
       } else {
@@ -1013,6 +1124,15 @@ Page({
           const img = wx.createImage();
           img.onload = () => {
             // 绘制图片
+    // 监听键盘高度，避免编辑面板被遮挡
+    try {
+      wx.onKeyboardHeightChange && wx.onKeyboardHeightChange((res) => {
+        const h = res && res.height ? res.height : 0;
+        if (this.data.editingMemoIndex >= 0) {
+          this.setData({ keyboardHeight: h });
+        }
+      });
+    } catch (e) {}
             ctx.drawImage(imageUrl, x, y, drawW, drawH);
 
             // 绘制文字标题

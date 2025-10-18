@@ -3,6 +3,16 @@ const i18n = require('../../utils/i18n.js');
 Page({
   data: {
     plantList: [],
+    reorderMode: false,
+    // 拖拽排序相关
+    draggingIndex: -1,
+    hoverIndex: -1,
+    dragY: 0,
+    itemHeights: [],
+    itemPositions: [], // 预览位置
+    basePositions: [], // 基线位置
+    reorderAreaHeight: 0,
+    fallbackItemHeightPx: 360,
     batchMode: false,
     selectedPlants: [],
     showBatchActions: false,
@@ -124,34 +134,244 @@ Page({
     // Resolve cloud fileIDs to temp URLs for display (if any)
     const firstImages = plantList.map(p => p.images && p.images[0] ? p.images[0] : null);
     const cloudIds = firstImages.filter(path => path && path.indexOf('cloud://') === 0);
-    if (cloudIds.length > 0 && wx.cloud && wx.cloud.getTempFileURL) {
-      wx.cloud.getTempFileURL({
-        fileList: cloudIds,
-        success: (res) => {
-          const map = {};
-          (res.fileList || []).forEach(i => { map[i.fileID] = i.tempFileURL; });
+    if (cloudIds.length > 0) {
+      try {
+        const cloudUtils = require('../../utils/cloud_utils.js');
+        cloudUtils.getTempUrlsCached(cloudIds).then((map) => {
           plantList.forEach(p => {
             if (p.images && p.images[0] && map[p.images[0]]) {
               p.images[0] = map[p.images[0]];
             }
           });
           this.finishLoad(plantList);
-        },
-        fail: (err) => {
-          console.warn('[index] getTempFileURL failed:', err);
+        }).catch((err) => {
+          console.warn('[index] getTempUrlsCached failed:', err);
           this.finishLoad(plantList);
-        }
-      });
-      return;
+        });
+        return;
+      } catch (e) {
+        console.warn('[index] temp url cache not available:', e);
+      }
     }
     this.finishLoad(plantList);
   },
 
   finishLoad: function(plantList) {
+    // 按照用户保存的顺序排序
+    try {
+      const savedOrder = wx.getStorageSync('plantOrder') || [];
+      if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+        const orderMap = new Map();
+        savedOrder.forEach((id, idx) => orderMap.set(Number(id), idx));
+        plantList.sort((a, b) => {
+          const ia = orderMap.has(Number(a.id)) ? orderMap.get(Number(a.id)) : Number.MAX_SAFE_INTEGER;
+          const ib = orderMap.has(Number(b.id)) ? orderMap.get(Number(b.id)) : Number.MAX_SAFE_INTEGER;
+          if (ia === ib) return 0;
+          return ia - ib;
+        });
+      }
+    } catch (e) {}
     this.setData({ plantList: plantList });
     // 计算提醒状态
     this.calculateReminderStatus(plantList);
   },
+  // 进入排序模式（长按卡片）
+  enterReorderMode: function() {
+    if (this.data.batchMode) return;
+    try {
+      const sys = wx.getSystemInfoSync();
+      const pxPerRpx = sys && sys.windowWidth ? sys.windowWidth / 750 : 1;
+      const fallbackH = Math.max(200, Math.round(420 * pxPerRpx));
+      const n = (this.data.plantList || []).length;
+      const heights = Array(n).fill(fallbackH);
+      const gap = 12;
+      const positions = [];
+      let y = 0;
+      for (let i = 0; i < n; i++) { positions.push(y); y += heights[i] + gap; }
+      const areaHeight = Math.max(y - gap, 0);
+      this.setData({
+        reorderMode: true,
+        draggingIndex: -1,
+        hoverIndex: -1,
+        itemHeights: heights,
+        basePositions: positions,
+        itemPositions: positions.slice(),
+        reorderAreaHeight: areaHeight,
+        fallbackItemHeightPx: fallbackH,
+        dragY: 0
+      });
+      setTimeout(() => { this.refreshReorderLayout(); }, 60);
+    } catch (e) {
+      this.setData({ reorderMode: true });
+      setTimeout(() => { this.refreshReorderLayout(); }, 60);
+    }
+    wx.showToast({ title: this.translate('common', 'reorderStart') || '进入排序', icon: 'none' });
+  },
+  // 精确测量并刷新拖拽布局
+  refreshReorderLayout: function() {
+    try {
+      const query = this.createSelectorQuery();
+      query.selectAll('.reorder-card').boundingClientRect(rects => {
+        if (!Array.isArray(rects) || rects.length === 0) return;
+        const heights = rects.map(r => Math.max(1, Math.round(r.height)));
+        const gap = 12;
+        const positions = [];
+        let y = 0;
+        for (let i = 0; i < heights.length; i++) { positions.push(y); y += heights[i] + gap; }
+        const areaHeight = Math.max(y - gap, 0);
+        this.setData({
+          itemHeights: heights,
+          basePositions: positions,
+          itemPositions: positions.slice(),
+          reorderAreaHeight: areaHeight
+        });
+      }).exec();
+    } catch (e) {}
+  },
+  // 完成排序，保存顺序
+  finishReorder: function() {
+    const order = (this.data.plantList || []).map(p => Number(p.id));
+    try { wx.setStorageSync('plantOrder', order); } catch (e) {}
+    this.setData({ reorderMode: false });
+    wx.showToast({ title: this.translate('common', 'saved') || '已保存', icon: 'success' });
+  },
+  // 拖拽开始
+  onDragTouchStart: function(e) {
+    const idx = Number(e.currentTarget.dataset.index);
+    if (isNaN(idx)) return;
+    const startY = (this.data.itemPositions || [])[idx] || 0;
+    this.setData({ draggingIndex: idx, hoverIndex: idx, dragY: startY });
+  },
+  // 拖拽移动
+  onDragChange: function(e) {
+    if (!e || !e.detail || e.detail.source !== 'touch') return;
+    let idx = this.data.draggingIndex;
+    if (isNaN(idx) || idx < 0) {
+      const dsIdx = Number(e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.index : NaN);
+      if (!isNaN(dsIdx)) {
+        idx = dsIdx;
+        this.setData({ draggingIndex: dsIdx, hoverIndex: dsIdx });
+      }
+    }
+    if (isNaN(idx) || idx < 0) return;
+    const currentY = e.detail.y;
+    const heights = (this.data.itemHeights || []).slice();
+    const base = (this.data.basePositions || []).slice();
+    if (idx >= base.length) return;
+    this.setData({ dragY: currentY });
+    // 找到最近插入位置
+    const centerY = currentY + (heights[idx] || 0) / 2;
+    let nearestIndex = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < base.length; i++) {
+      const c = (base[i] || 0) + (heights[i] || 0) / 2;
+      const d = Math.abs(centerY - c);
+      if (d < minDist) { minDist = d; nearestIndex = i; }
+    }
+    if (nearestIndex === this.data.hoverIndex) return;
+    // 预览：根据拖拽项插入到 nearestIndex 后的位置，计算每个原索引的y
+    const n = heights.length;
+    const order = [];
+    for (let i = 0; i < n; i++) order.push(i);
+    const [moved] = order.splice(idx, 1);
+    order.splice(nearestIndex, 0, moved);
+    const pos = new Array(n);
+    const gap = 12;
+    let y = 0;
+    for (let k = 0; k < n; k++) {
+      const originalIndex = order[k];
+      pos[originalIndex] = y;
+      y += heights[originalIndex] + gap;
+    }
+    this.setData({ itemPositions: pos, hoverIndex: nearestIndex, reorderAreaHeight: Math.max(y - gap, 0) });
+  },
+  // 拖拽结束，提交顺序
+  onDragTouchEnd: function(e) {
+    const from = this.data.draggingIndex;
+    const to = this.data.hoverIndex;
+    if (isNaN(from) || from < 0) return;
+    const list = (this.data.plantList || []).slice();
+    if (!isNaN(to) && to >= 0 && to < list.length && to !== from) {
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved);
+    }
+    // 依据最终顺序重建位置
+    const h = (this.data.itemHeights || []).slice();
+    const gap = 12;
+    const base = [];
+    let y0 = 0;
+    for (let i = 0; i < h.length; i++) { base.push(y0); y0 += h[i] + gap; }
+    const areaHeight = Math.max(y0 - gap, 0);
+    this.setData({
+      plantList: list,
+      basePositions: base,
+      itemPositions: base.slice(),
+      reorderAreaHeight: areaHeight,
+      draggingIndex: -1,
+      hoverIndex: -1,
+      dragY: 0
+    });
+    // 保存顺序
+    try {
+      const orderIds = (list || []).map(p => Number(p.id));
+      wx.setStorageSync('plantOrder', orderIds);
+    } catch (e2) {}
+  },
+  // 移动植物位置
+  moveItem: function(e) {
+    if (!this.data.reorderMode) return;
+    
+    const currentIndex = Number(e.currentTarget.dataset.index);
+    const direction = e.currentTarget.dataset.direction;
+    
+    if (isNaN(currentIndex)) return;
+    
+    let newIndex;
+    if (direction === 'up') {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'down') {
+      newIndex = currentIndex + 1;
+    } else {
+      return;
+    }
+    
+    // 检查边界
+    if (newIndex < 0 || newIndex >= this.data.plantList.length) {
+      wx.showToast({ 
+        title: direction === 'up' ? '已经是第一个' : '已经是最后一个', 
+        icon: 'none',
+        duration: 1000
+      });
+      return;
+    }
+    
+    // 交换位置
+    const list = [...this.data.plantList];
+    const [movedItem] = list.splice(currentIndex, 1);
+    list.splice(newIndex, 0, movedItem);
+    
+    this.setData({ plantList: list });
+    
+    // 保存顺序
+    try {
+      const order = list.map(p => Number(p.id));
+      wx.setStorageSync('plantOrder', order);
+      console.log('顺序已保存');
+    } catch (e) {
+      console.error('保存顺序失败:', e);
+    }
+  },
+  // 卡片点击：根据模式决定行为
+  onCardTap: function(e) {
+    if (this.data.reorderMode) return; // 排序模式下不跳转
+    const id = Number(e.currentTarget.dataset.id);
+    if (this.data.batchMode) {
+      this.togglePlantSelection({ currentTarget: { dataset: { id } } });
+    } else {
+      this.goToDetail({ currentTarget: { dataset: { id } } });
+    }
+  },
+  noop: function() {},
 
   // 计算提醒状态
   calculateReminderStatus: function(plantList) {

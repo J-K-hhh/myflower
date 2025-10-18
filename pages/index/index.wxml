@@ -11,7 +11,7 @@
   </view>
 
   <!-- 绿植列表 -->
-  <view wx:else class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}}">
+  <view wx:else class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}} {{reorderMode ? 'reorder' : ''}}">
     
     <!-- 批量模式提示（固定在顶部） -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip">
@@ -20,35 +20,71 @@
     </view>
     <!-- 占位符，避免列表被顶部提示遮挡 -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip-spacer"></view>
-    
-    <view class="plant-card {{batchMode ? 'batch-mode' : ''}} {{item.selected ? 'selected' : ''}}" 
-          wx:for="{{plantList}}" wx:key="id" 
-          data-id="{{item.id}}" 
-          bindtap="{{batchMode ? 'togglePlantSelection' : 'goToDetail'}}">
-      <!-- 批量选择框 -->
-      <view wx:if="{{batchMode}}" class="batch-checkbox {{item.selected ? 'checked' : ''}}">
-        <text class="checkbox-icon">{{item.selected ? '✓' : ''}}</text>
-      </view>
-      
-      <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
-      <view class="card-content">
-        <view class="card-title">{{item.aiResult.name || i18nCommon.unknownPlant}}</view>
-        <view class="card-info">
-          <view class="info-item" wx:if="{{item.lastWateringDate}}">
-            <text class="info-icon">💧</text>
-            <text>{{item.lastWateringDate}}</text>
-          </view>
-          <view class="info-item" wx:if="{{item.lastFertilizingDate && !item.lastWateringDate}}">
-            <text class="info-icon">🌱</text>
-            <text>{{item.lastFertilizingDate}}</text>
-          </view>
-          <view class="info-item" wx:if="{{!item.lastWateringDate && !item.lastFertilizingDate}}">
-            <text class="info-icon">📅</text>
-            <text>{{item.createDate}}</text>
+    <!-- 普通模式 -->
+    <block wx:if="{{!reorderMode}}">
+      <view class="plant-card {{batchMode ? 'batch-mode' : ''}} {{item.selected ? 'selected' : ''}}" 
+            wx:for="{{plantList}}" wx:key="id" 
+            data-id="{{item.id}}" data-index="{{index}}"
+            bindtap="onCardTap" bindlongpress="enterReorderMode">
+        <view wx:if="{{batchMode}}" class="batch-checkbox {{item.selected ? 'checked' : ''}}">
+          <text class="checkbox-icon">{{item.selected ? '✓' : ''}}</text>
+        </view>
+        <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
+        <view class="card-content">
+          <view class="card-title">{{item.aiResult.name || i18nCommon.unknownPlant}}</view>
+          <view class="card-info">
+            <view class="info-item" wx:if="{{item.lastWateringDate}}">
+              <text class="info-icon">💧</text>
+              <text>{{item.lastWateringDate}}</text>
+            </view>
+            <view class="info-item" wx:if="{{item.lastFertilizingDate && !item.lastWateringDate}}">
+              <text class="info-icon">🌱</text>
+              <text>{{item.lastFertilizingDate}}</text>
+            </view>
+            <view class="info-item" wx:if="{{!item.lastWateringDate && !item.lastFertilizingDate}}">
+              <text class="info-icon">📅</text>
+              <text>{{item.createDate}}</text>
+            </view>
           </view>
         </view>
       </view>
-    </view>
+    </block>
+
+    <!-- 排序模式：拖拽列表 -->
+    <block wx:else>
+      <movable-area class="reorder-area" style="width: 100%; height: {{reorderAreaHeight}}px;">
+        <movable-view wx:for="{{plantList}}" wx:key="id"
+                      class="reorder-item"
+                      data-index="{{index}}"
+                      x="0" y="{{index == draggingIndex ? dragY : (itemPositions[index] || basePositions[index] || 0)}}"
+                      style="width: 100%; height: {{itemHeights[index] || fallbackItemHeightPx}}px;"
+                      direction="vertical" inertia="true" out-of-bounds="true"
+                      damping="40" friction="8"
+                      bindchange="onDragChange"
+                      bindtouchstart="onDragTouchStart" bindtouchend="onDragTouchEnd">
+          <view class="plant-card reorder-card">
+            <image class="card-image" src="{{item.images[0]}}" mode="aspectFill"></image>
+            <view class="card-content">
+              <view class="card-title">{{item.aiResult.name || i18nCommon.unknownPlant}}</view>
+              <view class="card-info">
+                <view class="info-item" wx:if="{{item.lastWateringDate}}">
+                  <text class="info-icon">💧</text>
+                  <text>{{item.lastWateringDate}}</text>
+                </view>
+                <view class="info-item" wx:if="{{item.lastFertilizingDate && !item.lastWateringDate}}">
+                  <text class="info-icon">🌱</text>
+                  <text>{{item.lastFertilizingDate}}</text>
+                </view>
+                <view class="info-item" wx:if="{{!item.lastWateringDate && !item.lastFertilizingDate}}">
+                  <text class="info-icon">📅</text>
+                  <text>{{item.createDate}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </movable-view>
+      </movable-area>
+    </block>
   </view>
 
 
@@ -102,6 +138,12 @@
     <view class="add-plant-button" bindtap="goToAdd">
       <text class="add-icon">+</text>
     </view>
+  </view>
+
+  <!-- 排序模式底部操作栏 -->
+  <view class="reorder-actions" wx:if="{{reorderMode}}" catchtap="noop">
+    <view class="reorder-tip">长按进入排序，拖拽调整顺序</view>
+    <view class="reorder-finish" bindtap="finishReorder">完成</view>
   </view>
   
   <!-- 批量操作历史弹窗 -->
