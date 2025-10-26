@@ -44,9 +44,19 @@ Page({
       const shouldRefresh = wx.getStorageSync('shouldRefreshPlantList');
       const hasLocal = Array.isArray(this.data.plantList) && this.data.plantList.length > 0;
       if (!shouldRefresh && hasLocal) {
-        // 即使不刷新数据，也要重新计算提醒状态（语言可能已切换）
-        this.calculateReminderStatus(this.data.plantList);
-        this.setRandomTitle();
+        // 检查本地存储与当前列表是否不一致（例如删除了植物但未刷新）
+        const latest = wx.getStorageSync('plantList') || [];
+        const currentIds = (this.data.plantList || []).map(p => Number(p.id));
+        const latestIds = (latest || []).map(p => Number(p.id));
+        const sameLength = currentIds.length === latestIds.length;
+        const sameSet = sameLength && currentIds.every(id => latestIds.indexOf(id) >= 0);
+        if (!sameSet) {
+          this.loadPlantData();
+        } else {
+          // 即使不刷新数据，也要重新计算提醒状态（语言可能已切换）
+          this.calculateReminderStatus(this.data.plantList);
+          this.setRandomTitle();
+        }
         return;
       }
     } catch (e) {}

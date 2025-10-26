@@ -34,7 +34,8 @@ Page({
     keyboardHeight: 0,
     // 分享评论（按当前图片）
     shareComments: [],
-    shareCommentsToShow: []
+    shareCommentsToShow: [],
+    shareCommentsCount: 0
   },
 
   onLoad: function (options) {
@@ -244,7 +245,7 @@ Page({
   loadShareCommentsForIndex: function(index) {
     if (this.data.readonlyShareView) return;
     const images = Array.isArray(this.data.plant.images) ? this.data.plant.images : [];
-    if (!images.length) { this.setData({ shareComments: [], shareCommentsToShow: [] }); return; }
+    if (!images.length) { this.setData({ shareComments: [], shareCommentsToShow: [], shareCommentsCount: 0 }); return; }
     const path = images[index] || images[0];
     const canonicalPath = this._toCanonicalPath(path);
     const ownerIdPromise = new Promise((resolve) => {
@@ -254,19 +255,38 @@ Page({
       try { wx.cloud.callFunction({ name: 'login' }).then(r => resolve((r && r.result && r.result.openid) || '')).catch(() => resolve('')); } catch (e) { resolve(''); }
     });
     ownerIdPromise.then((ownerOpenId) => {
-      if (!ownerOpenId) { this.setData({ shareComments: [], shareCommentsToShow: [] }); return; }
+      if (!ownerOpenId) { this.setData({ shareComments: [], shareCommentsToShow: [], shareCommentsCount: 0 }); return; }
       const backend = require('../../utils/backend_service.js');
       const shareUtils = require('../../utils/share_utils.js');
       const key = shareUtils.shareKey(ownerOpenId, this.data.plantId || (this.data.plant && this.data.plant.id));
-      backend.listShareComments(ownerOpenId, this.data.plantId || (this.data.plant && this.data.plant.id), canonicalPath, 50).then(items => {
-        const map = (items || []).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
-        const local = shareUtils.getCommentsByImage(key, canonicalPath).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
-        const list = map.length > 0 ? map : local;
-        this.setData({ shareComments: list, shareCommentsToShow: list.slice(0, 3) });
-      }).catch(() => {
-        const local = shareUtils.getCommentsByImage(key, canonicalPath).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
-        this.setData({ shareComments: local, shareCommentsToShow: local.slice(0, 3) });
-      });
+      const plantId = this.data.plantId || (this.data.plant && this.data.plant.id);
+      const tryList = (imgPath) => backend.listShareComments(ownerOpenId, plantId, imgPath, 50).then(items => Array.isArray(items) ? items : []).catch(() => []);
+      Promise.resolve()
+        .then(() => tryList(path))
+        .then(listA => {
+          if (listA && listA.length > 0) return listA;
+          if (canonicalPath && canonicalPath !== path) {
+            return tryList(canonicalPath);
+          }
+          return [];
+        })
+        .then(items => {
+          const mapped = (items || []).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
+          this.setData({ 
+            shareComments: mapped, 
+            shareCommentsToShow: mapped.slice(0, 3),
+            shareCommentsCount: mapped.length
+          });
+        })
+        .catch(() => {
+          // 本地兜底（很可能为空）
+          const local = shareUtils.getCommentsByImage(key, path).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
+          this.setData({ 
+            shareComments: local, 
+            shareCommentsToShow: local.slice(0, 3),
+            shareCommentsCount: local.length
+          });
+        });
     });
   },
 
@@ -1208,6 +1228,7 @@ Page({
           const newList = plantList.filter(p => p.id != this.data.plantId);
           wx.setStorageSync('plantList', newList);
           this.syncToCloud(newList);
+          try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
           
           // 清理云端文件
           if (allFileIds.length > 0 && backend.deleteFiles) {

@@ -53,7 +53,7 @@
       <text>{{i18n.comments.title}}</text>
     </view>
     <view class="comment-list-owner">
-      <view class="comment-empty" wx:if="{{(shareComments || []).length === 0}}">{{i18n.comments.none}}</view>
+      <view class="comment-empty" wx:if="{{!shareCommentsCount}}">{{i18n.comments.none}}</view>
       <block wx:for="{{shareCommentsToShow}}" wx:key="id">
         <view class="comment-item">
           <text class="comment-nick">{{item.nickname}}：</text>
