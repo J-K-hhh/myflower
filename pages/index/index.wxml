@@ -10,8 +10,10 @@
     <view class="empty-tip">{{i18n.emptyState.tip}}</view>
   </view>
 
+  <!-- 朋友分享移至独立页面 -->
+
   <!-- 绿植列表 -->
-  <view wx:else class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}} {{reorderMode ? 'reorder' : ''}}">
+  <view class="plant-list {{plantList.length === 1 ? 'single-plant' : (plantList.length === 2 ? 'two-plants' : 'multiple-plants')}} {{reorderMode ? 'reorder' : ''}}">
     
     <!-- 批量模式提示（固定在顶部） -->
     <view wx:if="{{batchMode}}" class="batch-mode-tip">
@@ -89,8 +91,14 @@
 
 
   <!-- 设置按钮 -->
-  <view class="settings-button" bindtap="goToSettings" wx:if="{{!batchMode}}">
-    <text class="settings-icon">⚙️</text>
+  <!-- 顶部操作区：设置 + 朋友分享（紧挨着） -->
+  <view class="top-actions" wx:if="{{!batchMode}}">
+    <view class="settings-button" bindtap="goToSettings">
+      <text class="settings-icon">⚙️</text>
+    </view>
+    <view class="friends-button" bindtap="goToFriends" wx:if="{{friendShares.length > 0}}">
+      <text class="friends-icon">👥</text>
+    </view>
   </view>
   
   

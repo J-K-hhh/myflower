@@ -1,0 +1,93 @@
+<view class="share-container">
+  <!-- 顶部信息 -->
+  <view class="header">
+    <view class="title-line">
+      <text class="plant-name">{{plant.aiResult.name || i18nCommon.unknownPlant}}</text>
+      <text class="owner">· by {{ownerName || '微信好友'}}</text>
+    </view>
+    <view class="sub-line">
+      <text class="share-time" wx:if="{{plant.createTime}}">{{createdAtText}}</text>
+    </view>
+  </view>
+
+  <!-- 图集大卡 -->
+  <view class="hero">
+    <swiper class="gallery" style="height: {{currentHeight}}px" indicator-dots="{{galleryImages.length > 1}}" circular="true" bindchange="onGalleryChange">
+      <block wx:for="{{galleryImages}}" wx:key="*this">
+        <swiper-item>
+          <image class="hero-image" src="{{item}}" mode="aspectFit" bindload="onImageLoad" data-index="{{index}}"></image>
+        </swiper-item>
+      </block>
+    </swiper>
+    <view class="quick-actions">
+      <button class="qa-btn" size="mini" bindtap="toggleFollow">{{isFollowed ? i18n.follow.followed : i18n.follow.followToHome}}</button>
+      <button class="qa-btn" size="mini" bindtap="like">♡ {{likeCount}}</button>
+      <button class="qa-btn" size="mini" open-type="share">↗</button>
+    </view>
+    <!-- 覆盖层：当前图片的备忘与评论 -->
+    <view class="overlay">
+      <view class="memo-on-image" wx:if="{{currentMemo}}">📝 {{currentMemo}}</view>
+      <view class="comments-on-image" wx:if="{{commentsToShow.length > 0}}">
+        <block wx:for="{{commentsToShow}}" wx:key="id">
+          <view class="comment-line">{{item.nickname}}：{{item.content}}</view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最新状态条 -->
+  <view class="activity-strip" wx:if="{{latestStatusText}}">
+    <text class="clock">⏱</text>
+    <text class="status-text">{{latestStatusText}}</text>
+  </view>
+
+  <!-- 下方输入区保持不变，内容已覆盖显示在图片上 -->
+
+  <!-- 互动区：评论 -->
+  <view class="comment-section" wx:if="{{allowComment}}">
+    <view class="comment-header">
+      <text>💬</text>
+      <text class="comment-count">{{comments.length}}</text>
+    </view>
+    <view class="comment-list">
+      <block wx:for="{{comments}}" wx:key="id">
+        <view class="comment-item">
+          <text class="nick">{{item.nickname}}</text>
+          <text class="content">：{{item.content}}</text>
+          <text class="time">{{item.timeText}}</text>
+        </view>
+      </block>
+    </view>
+    <view class="comment-input">
+      <input placeholder="{{i18n.comment.placeholder}}" value="{{commentDraft}}" bindinput="onCommentInput" confirm-type="send" bindconfirm="submitComment"/>
+      <button class="send" size="mini" bindtap="submitComment">{{i18n.comment.send}}</button>
+    </view>
+  </view>
+
+  <!-- 工具区 -->
+  <view class="tools">
+    <button class="primary" bindtap="toggleFollow">{{isFollowed ? i18n.follow.followed : i18n.follow.followToHome}}</button>
+    <button class="secondary" bindtap="toggleNotify">{{notifyOnUpdate ? i18n.follow.notifyOn : i18n.follow.notifyOff}}</button>
+  </view>
+
+  <!-- 历史记录（简版） -->
+  <view class="history-strip" wx:if="{{historyItems.length > 0}}">
+    <scroll-view scroll-x="true" class="history-scroll">
+      <view class="history-items">
+        <block wx:for="{{historyItems}}" wx:key="time">
+          <view class="history-item">{{item.text}}</view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 底部进入详情 -->
+  <view class="enter-detail">
+    <button open-type="navigate" bindtap="goToDetail">{{i18n.enterDetail}}</button>
+  </view>
+
+  <!-- 回到我的主页 -->
+  <view class="enter-home">
+    <button bindtap="goHome">回到我的主页</button>
+  </view>
+</view>

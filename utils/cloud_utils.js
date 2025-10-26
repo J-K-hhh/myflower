@@ -382,13 +382,13 @@ module.exports.deleteCloudFiles = deleteCloudFiles;
 // (Snapshot helpers removed)
 
 // Dynamic shared read: fetch a single plant by owner+id
-function loadSharedPlantByOwner(ownerOpenId, plantId) {
+function loadSharedPlantByOwner(ownerOpenId, plantId, shareNickname = null) {
   return new Promise((resolve) => {
     if (!initCloud()) { resolve(null); return; }
     if (!ownerOpenId || !plantId) { resolve(null); return; }
     wx.cloud.callFunction({
       name: 'getSharedPlant',
-      data: { ownerOpenId, plantId }
+      data: { ownerOpenId, plantId, shareNickname }
     }).then(res => {
       const result = (res && res.result) || {};
       resolve(result); // 直接返回（云端已尽力把图片转成URL）
@@ -397,6 +397,58 @@ function loadSharedPlantByOwner(ownerOpenId, plantId) {
 }
 
 module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
+
+// Share comments (cloud persistence)
+function saveShareComment(ownerOpenId, plantId, imagePath, nickname, content) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve({ ok: false, error: 'cloud_unavailable' }); return; }
+    wx.cloud.callFunction({
+      name: 'shareComments',
+      data: { action: 'add', ownerOpenId, plantId, imagePath, nickname, content }
+    }).then(res => resolve(res && res.result ? res.result : { ok: true }))
+      .catch(() => resolve({ ok: false }));
+  });
+}
+
+function listShareComments(ownerOpenId, plantId, imagePath, limit = 50) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve([]); return; }
+    wx.cloud.callFunction({
+      name: 'shareComments',
+      data: { action: 'list', ownerOpenId, plantId, imagePath, limit }
+    }).then(res => resolve((res && res.result && Array.isArray(res.result.items)) ? res.result.items : []))
+      .catch(() => resolve([]));
+  });
+}
+
+module.exports.saveShareComment = saveShareComment;
+module.exports.listShareComments = listShareComments;
+
+// Share likes (cloud persistence)
+function saveShareLike(ownerOpenId, plantId, imagePath, likerOpenId, nickname) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve({ ok: false, error: 'cloud_unavailable' }); return; }
+    wx.cloud.callFunction({
+      name: 'shareLikes',
+      data: { action: 'add', ownerOpenId, plantId, imagePath, likerOpenId, nickname }
+    }).then(res => resolve(res && res.result ? res.result : { ok: true }))
+      .catch(() => resolve({ ok: false }));
+  });
+}
+
+function listShareLikes(ownerOpenId, plantId, imagePath, limit = 200) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve({ items: [], count: 0 }); return; }
+    wx.cloud.callFunction({
+      name: 'shareLikes',
+      data: { action: 'list', ownerOpenId, plantId, imagePath, limit }
+    }).then(res => resolve((res && res.result) ? res.result : { items: [], count: 0 }))
+      .catch(() => resolve({ items: [], count: 0 }));
+  });
+}
+
+module.exports.saveShareLike = saveShareLike;
+module.exports.listShareLikes = listShareLikes;
 
 // User profile management functions
 function getUserProfile() {

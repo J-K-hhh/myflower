@@ -3,6 +3,8 @@ const i18n = require('../../utils/i18n.js');
 Page({
   data: {
     plantList: [],
+    friendShares: [],
+    friendSharesLoading: false,
     reorderMode: false,
     // 拖拽排序相关
     draggingIndex: -1,
@@ -31,6 +33,9 @@ Page({
   onLoad: function () {
     this.updateTranslations();
     this.loadUserProfile();
+    // 主动加载一次我的植物列表，避免某些跳转路径仅触发onLoad
+    this.loadPlantData();
+    this.loadFriendShares(true);
   },
   onShow: function () {
     // 仅在需要时刷新，减少从详情返回时的全量刷新闪烁
@@ -48,6 +53,18 @@ Page({
     // 清除刷新标记并加载
     try { wx.removeStorageSync('shouldRefreshPlantList'); } catch (e) {}
     this.loadPlantData();
+    // 刷新朋友分享区
+    try {
+      const refreshFriend = wx.getStorageSync('shouldRefreshFriendShares');
+      if (refreshFriend) {
+        wx.removeStorageSync('shouldRefreshFriendShares');
+        this.loadFriendShares(true);
+      } else {
+        this.loadFriendShares(false);
+      }
+    } catch (e) {
+      this.loadFriendShares(false);
+    }
     this.setRandomTitle();
     this.updateNavigationTitle();
   },
@@ -77,6 +94,48 @@ Page({
       this.setData({ batchHistoryData: updatedHistory });
     }
   },
+  // 加载朋友关注的分享（本地存储 + 云端刷新最新状态）
+  loadFriendShares: function(forceRefresh = false) {
+    try {
+      const shareUtils = require('../../utils/share_utils.js');
+      const backend = require('../../utils/backend_service.js');
+      const list = shareUtils.getFollowList();
+      if (!Array.isArray(list) || list.length === 0) {
+        this.setData({ friendShares: [] });
+        return;
+      }
+      // 仅展示最近14天关注的前10个
+      const cutoff = Date.now() - 14 * 86400000;
+      const recent = list.filter(i => Number(i.followedAt || 0) >= cutoff).slice(0, 10);
+      // 先渲染本地，再尝试刷新状态
+      this.setData({ friendShares: recent, friendSharesLoading: true });
+      if (!forceRefresh) { this.setData({ friendSharesLoading: false }); return; }
+
+      const tasks = recent.map(card => new Promise(resolve => {
+        backend.loadSharedPlantByOwner(card.ownerOpenId, card.plantId).then(res => {
+          const plant = res && res.plant ? res.plant : res;
+          if (plant) {
+            const latest = shareUtils.getLatestStatus(plant);
+            resolve({ ...card, lastStatus: latest, thumb: (Array.isArray(plant.images) && plant.images[0]) || card.thumb });
+          } else {
+            resolve(card);
+          }
+        }).catch(() => resolve(card));
+      }));
+
+      Promise.all(tasks).then(updated => {
+        this.setData({ friendShares: updated, friendSharesLoading: false });
+      });
+    } catch (e) {
+      console.warn('[index] loadFriendShares error:', e);
+      this.setData({ friendSharesLoading: false });
+    }
+  },
+  // 朋友卡片上的留言入口
+  tapFriendComment: function(e) {
+    const { owner, pid } = e.currentTarget.dataset;
+    wx.navigateTo({ url: `/pages/share/landing?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(pid)}` });
+  },
   translate: function(namespace, keyPath, params = {}) {
     const app = getApp();
     if (app && typeof app.t === 'function') {
@@ -94,6 +153,12 @@ Page({
   setRandomTitle: function() {
     const app = getApp();
     app.setRandomTitle();
+  },
+  goHome: function() {
+    wx.reLaunch({ url: '/pages/index/index' });
+  },
+  goToFriends: function() {
+    wx.navigateTo({ url: '/pages/friends/friends' });
   },
 
   // 更新导航栏标题，显示用户昵称
@@ -135,9 +200,9 @@ Page({
     // 如果本地没有数据，尝试从云端加载（loadPlantList已经处理了本地优先逻辑）
     if (plantList.length === 0) {
       try {
-        const cloudUtils = require('../../utils/cloud_utils.js');
-        if (cloudUtils && cloudUtils.loadPlantList) {
-          cloudUtils.loadPlantList().then(cloudList => {
+        const backend = require('../../utils/backend_service.js');
+        if (backend && backend.loadPlantList) {
+          backend.loadPlantList().then(cloudList => {
             if (cloudList.length > 0) {
               wx.showToast({ title: this.translate('common', 'storage.restoreSuccess'), icon: 'success' });
               this.loadPlantData(); // 重新加载，此时本地已有数据
@@ -168,8 +233,8 @@ Page({
     const cloudIds = firstImages.filter(path => path && path.indexOf('cloud://') === 0);
     if (cloudIds.length > 0) {
       try {
-        const cloudUtils = require('../../utils/cloud_utils.js');
-        cloudUtils.getTempUrlsCached(cloudIds).then((map) => {
+        const backend = require('../../utils/backend_service.js');
+        backend.getTempUrlsCached(cloudIds).then((map) => {
           plantList.forEach(p => {
             if (p.images && p.images[0] && map[p.images[0]]) {
               p.images[0] = map[p.images[0]];
@@ -684,10 +749,10 @@ Page({
     
     // 异步同步到云端（不阻塞本地操作）
     try {
-      const cloudUtils = require('../../utils/cloud_utils.js');
-      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+      const backend = require('../../utils/backend_service.js');
+      if (backend && backend.savePlantList) {
         setTimeout(() => {
-          cloudUtils.savePlantList(updatedList).then((success) => {
+          backend.savePlantList(updatedList).then((success) => {
             if (success) {
               console.log('批量浇水云端同步成功');
             } else {
@@ -745,10 +810,10 @@ Page({
     
     // 异步同步到云端（不阻塞本地操作）
     try {
-      const cloudUtils = require('../../utils/cloud_utils.js');
-      if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+      const backend = require('../../utils/backend_service.js');
+      if (backend && backend.savePlantList) {
         setTimeout(() => {
-          cloudUtils.savePlantList(updatedList).then((success) => {
+          backend.savePlantList(updatedList).then((success) => {
             if (success) {
               console.log('批量施肥云端同步成功');
             } else {

@@ -10,33 +10,38 @@ App({
     i18n.setLanguage(savedLanguage)
     this.globalData.language = i18n.getLanguage()
 
-    if (!wx.cloud) {
-      console.error(i18n.t('common', 'pleaseUseNewVersion'))
-      return;
-    }
+    // Backend-aware init: only init wx.cloud when using Tencent backend
+    const systemConfig = require('./utils/system_config.js');
+    const backend = systemConfig.getBackend();
+    this.backendType = backend.type || 'tencent';
 
-    // 2) 正确初始化云环境 —— 用动态环境，和 DevTools 当前选择的 env 保持一致
-    wx.cloud.init({
-      env: wx.cloud.DYNAMIC_CURRENT_ENV, // ✅ 关键：指定动态环境
-      traceUser: true
-    });
-    console.log('[app] wx.cloud.init done (DYNAMIC_CURRENT_ENV)');
-
-    // 3) 全局就绪：先拿 openid，页面里 await app.ready 再去查云端
-    this.ready = (async () => {
-      try {
-        const { result } = await wx.cloud.callFunction({ name: 'login' });
-        this.openid = result.openid;
-        console.log('[app] openid:', this.openid);
-        
-        
-        return this.openid;
-      } catch (e) {
-        console.error('[app] login failed:', e);
-        // 这里返回 null，页面可以据此做降级（仅本地缓存，不查云端）
-        return null;
+    if (this.backendType === 'tencent') {
+      if (!wx.cloud) {
+        console.error(i18n.t('common', 'pleaseUseNewVersion'))
+      } else {
+        wx.cloud.init({
+          env: wx.cloud.DYNAMIC_CURRENT_ENV,
+          traceUser: true
+        });
+        console.log('[app] wx.cloud.init done (DYNAMIC_CURRENT_ENV)');
       }
-    })();
+
+      // Ready: fetch openid via cloud function
+      this.ready = (async () => {
+        try {
+          const { result } = await wx.cloud.callFunction({ name: 'login' });
+          this.openid = result.openid;
+          console.log('[app] openid:', this.openid);
+          return this.openid;
+        } catch (e) {
+          console.error('[app] login failed:', e);
+          return null;
+        }
+      })();
+    } else {
+      // Non-Tencent backend: no cloud init or openid
+      this.ready = Promise.resolve(null);
+    }
 
     // 设置随机emoji标题
     this.setRandomTitle()
@@ -82,11 +87,11 @@ App({
     return i18n.t(namespace, keyPath, params, this.getLanguage())
   },
 
-  // 加载用户资料
+  // 加载用户资料（通过后端服务适配器）
   loadUserProfile: async function() {
     try {
-      const cloudUtils = require('./utils/cloud_utils.js');
-      const profile = await cloudUtils.getUserProfile();
+      const backend = require('./utils/backend_service.js');
+      const profile = await backend.getUserProfile();
       this.globalData.userProfile = profile;
       return profile;
     } catch (e) {
@@ -106,11 +111,6 @@ App({
     userProfile: null, // 用户资料信息
     currentEmoji: '🌱',
     currentTitle: '',
-    language: 'zh',
-    baiduAi: {
-      apiKey: 'rJtyOhhpWmzpCtkqe2RBSuY6',
-      secretKey: 'o9jMcF3qbM5wlpsWxFfDFplFIfu9RITy',
-      accessToken: null
-    }
+    language: 'zh'
   }
 })

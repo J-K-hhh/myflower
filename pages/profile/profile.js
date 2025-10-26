@@ -1,5 +1,5 @@
 const i18n = require('../../utils/i18n.js');
-const cloudUtils = require('../../utils/cloud_utils.js');
+const backend = require('../../utils/backend_service.js');
 
 Page({
   data: {
@@ -44,7 +44,7 @@ Page({
   loadUserProfile: function() {
     this.setData({ loading: true });
     
-    cloudUtils.getUserProfile().then(profile => {
+    backend.getUserProfile().then(profile => {
       if (profile) {
         this.setData({
           nickname: profile.nickname || '',
@@ -98,7 +98,7 @@ Page({
 
     this.setData({ loading: true });
 
-    const saveFunction = hasProfile ? cloudUtils.updateUserProfile : cloudUtils.saveUserProfile;
+    const saveFunction = hasProfile ? backend.updateUserProfile : backend.saveUserProfile;
     
     saveFunction(nickname.trim(), this.data.avatarUrl).then(success => {
       this.setData({ loading: false });
@@ -148,28 +148,27 @@ Page({
         if (res.confirm) {
           this.setData({ loading: true });
           
-          wx.cloud.callFunction({
-            name: 'userProfile',
-            data: { action: 'delete' }
-          }).then(res => {
-            this.setData({ loading: false });
-            
-            if (res.result && res.result.success) {
-              wx.showToast({
-                title: this.translate('profile', 'deleteSuccess'),
-                icon: 'success'
-              });
-              this.setData({
-                nickname: '',
-                avatarUrl: '',
-                hasProfile: false
-              });
-            } else {
-              wx.showToast({
-                title: this.translate('common', 'deleteFailed'),
-                icon: 'none'
-              });
-            }
+          // Deletion currently supported only on Tencent adapter via cloud function
+          if (backend.type === 'tencent' && wx.cloud && wx.cloud.callFunction) {
+            wx.cloud.callFunction({ name: 'userProfile', data: { action: 'delete' } }).then(res => {
+              this.setData({ loading: false });
+              
+              if (res.result && res.result.success) {
+                wx.showToast({
+                  title: this.translate('profile', 'deleteSuccess'),
+                  icon: 'success'
+                });
+                this.setData({
+                  nickname: '',
+                  avatarUrl: '',
+                  hasProfile: false
+                });
+              } else {
+                wx.showToast({
+                  title: this.translate('common', 'deleteFailed'),
+                  icon: 'none'
+                });
+              }
           }).catch(err => {
             console.error('删除用户资料失败:', err);
             this.setData({ loading: false });
@@ -178,6 +177,10 @@ Page({
               icon: 'none'
             });
           });
+          } else {
+            this.setData({ loading: false });
+            wx.showToast({ title: this.translate('common', 'deleteFailed'), icon: 'none' });
+          }
         }
       }
     });

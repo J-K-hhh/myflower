@@ -1,6 +1,7 @@
 let API_KEY = '';
 let SECRET_KEY = '';
 const i18n = require('./i18n.js');
+const systemConfig = require('./system_config.js');
 
 function translate(namespace, keyPath, params = {}) {
   try {
@@ -13,22 +14,20 @@ function translate(namespace, keyPath, params = {}) {
 }
 
 function getConfig() {
-  if (!API_KEY || !SECRET_KEY) {
-    const app = getApp();
-    API_KEY = app.globalData.baiduAi.apiKey;
-    SECRET_KEY = app.globalData.baiduAi.secretKey;
-  }
+  try {
+    const ai = systemConfig.getAi();
+    const cfg = ai && ai.models && ai.models['baidu'];
+    if (cfg) {
+      API_KEY = cfg.apiKey || API_KEY;
+      SECRET_KEY = cfg.secretKey || SECRET_KEY;
+    }
+  } catch (e) {}
 }
 
 function getAccessToken() {
   return new Promise((resolve, reject) => {
     getConfig();
-    const app = getApp();
-    const cachedToken = app.globalData.baiduAi.accessToken;
-    if (cachedToken) {
-      resolve(cachedToken);
-      return;
-    }
+    // no reliable global cache here across sessions; rely on short-lived calls
     const tokenUrl = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${API_KEY}&client_secret=${SECRET_KEY}`;
     wx.request({
       url: tokenUrl,

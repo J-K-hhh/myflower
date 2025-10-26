@@ -97,22 +97,27 @@ Page({
   },
 
   loadSettings: function() {
+    const systemConfig = require('../../utils/system_config.js');
     const settings = wx.getStorageSync('appSettings') || {};
-    const selectedModel = settings.selectedModel || 'baidu'; // 默认使用百度
+    const sysAi = systemConfig.getAi();
+    const selectedModel = (sysAi && sysAi.selectedModel) || settings.selectedModel || 'baidu';
+    const limits = systemConfig.getLimits();
     console.log('加载设置，选中模型:', selectedModel);
     this.setData({
       selectedModel: selectedModel,
-      maxPhotos: settings.maxPhotos || 10,
-      maxRecords: settings.maxRecords || 50,
+      maxPhotos: Math.min(settings.maxPhotos || 10, limits.maxImagesPerPlant || 10),
+      maxRecords: Math.min(settings.maxRecords || 50, limits.maxRecordsPerPlant || 50),
       reminderFrequency: settings.reminderFrequency || 'frequent' // 默认3天一次
     });
   },
 
   saveSettings: function() {
+    const systemConfig = require('../../utils/system_config.js');
+    const limits = systemConfig.getLimits();
     const settings = {
       selectedModel: this.data.selectedModel,
-      maxPhotos: this.data.maxPhotos,
-      maxRecords: this.data.maxRecords,
+      maxPhotos: Math.min(this.data.maxPhotos, limits.maxImagesPerPlant || this.data.maxPhotos),
+      maxRecords: Math.min(this.data.maxRecords, limits.maxRecordsPerPlant || this.data.maxRecords),
       reminderFrequency: this.data.reminderFrequency
     };
     wx.setStorageSync('appSettings', settings);
@@ -192,10 +197,10 @@ Page({
       // 清理云端文件
       if (filesToDelete.length > 0) {
         try {
-          const cloudUtils = require('../../utils/cloud_utils.js');
-          if (cloudUtils && cloudUtils.deleteCloudFiles) {
+          const backend = require('../../utils/backend_service.js');
+          if (backend && backend.deleteFiles) {
             console.log('清理多余图片时删除云端文件:', filesToDelete);
-            cloudUtils.deleteCloudFiles(filesToDelete);
+            backend.deleteFiles(filesToDelete);
           }
         } catch (e) {
           console.error('清理云端文件失败:', e);
@@ -204,10 +209,10 @@ Page({
       
       // 异步同步到云端（不阻塞本地操作）
       try {
-        const cloudUtils = require('../../utils/cloud_utils.js');
-        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+        const backend = require('../../utils/backend_service.js');
+        if (backend && backend.savePlantList) {
           setTimeout(() => {
-            cloudUtils.savePlantList(updatedList).then((success) => {
+            backend.savePlantList(updatedList).then((success) => {
               if (success) {
                 console.log('清理图片云端同步成功');
               } else {
@@ -269,9 +274,9 @@ Page({
       try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
       // Persist to cloud database (best-effort)
       try {
-        const cloudUtils = require('../../utils/cloud_utils.js');
-        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-          cloudUtils.savePlantList(updatedList);
+        const backend = require('../../utils/backend_service.js');
+        if (backend && backend.savePlantList) {
+          backend.savePlantList(updatedList);
         }
       } catch (e) {}
       wx.showToast({
@@ -400,6 +405,11 @@ Page({
     wx.navigateTo({
       url: '/pages/profile/profile'
     });
+  },
+
+  // 跳转到系统设置（管理员）
+  goToSystemConfig: function() {
+    wx.navigateTo({ url: '/pages/sysconfig/sysconfig' });
   },
 
   // 加载用户资料

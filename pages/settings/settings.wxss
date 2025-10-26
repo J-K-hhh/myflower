@@ -294,6 +294,19 @@
   font-weight: 500;
 }
 
+.admin-button {
+  background: #f6f6f6;
+  color: #333;
+  padding: 20rpx 30rpx;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1rpx solid #e5e5e5;
+  margin-top: 16rpx;
+}
+
 .save-button {
   background: linear-gradient(135deg, #007AFF 0%, #0056b3 100%);
   color: white;

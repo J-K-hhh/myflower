@@ -1,5 +1,6 @@
 const baiduAi = require('./baidu_ai.js');
 const i18n = require('./i18n.js');
+const systemConfig = require('./system_config.js');
 
 function translate(namespace, keyPath, params = {}) {
   try {
@@ -11,32 +12,18 @@ function translate(namespace, keyPath, params = {}) {
   return i18n.t(namespace, keyPath, params);
 }
 
-// 模型配置
-const MODEL_CONFIGS = {
-  'qwen-vl-max': {
-    name: 'qwen-vl-max',
-    apiKey: 'sk-768522cdd6d741b68972ed9a9cc36e60',
-    baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-    timeout: 60000,
-    maxImageSize: 300000
-  },
-  'qwen-vl-max-latest': {
-    name: 'qwen-vl-max-latest',
-    apiKey: 'sk-768522cdd6d741b68972ed9a9cc36e60',
-    baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-    timeout: 60000,
-    maxImageSize: 300000
-  },
+// Minimal fallback model configs (system_config should supply actual keys/values)
+const FALLBACK_MODEL_CONFIGS = {
   'qwen-vl-max-2025-08-13': {
     name: 'qwen-vl-max-2025-08-13',
-  apiKey: 'sk-768522cdd6d741b68972ed9a9cc36e60',
+    apiKey: '',
     baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
     timeout: 60000,
     maxImageSize: 300000
   },
   'gemini-pro-vision': {
     name: 'gemini-pro-vision',
-    apiKey: '', // 需要配置Gemini API Key
+    apiKey: '',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent',
     timeout: 60000,
     maxImageSize: 120000
@@ -47,6 +34,11 @@ const MODEL_CONFIGS = {
  * 获取当前选择的模型
  */
 function getCurrentModel() {
+  // System-level model takes precedence
+  try {
+    const ai = systemConfig.getAi();
+    if (ai && ai.selectedModel) return ai.selectedModel;
+  } catch (e) {}
   const settings = wx.getStorageSync('appSettings') || {};
   return settings.selectedModel || 'baidu';
 }
@@ -56,7 +48,11 @@ function getCurrentModel() {
  */
 function getModelConfig(modelName = null) {
   const model = modelName || getCurrentModel();
-  return MODEL_CONFIGS[model] || MODEL_CONFIGS['qwen-vl-max-2025-08-13'];
+  try {
+    const cfg = systemConfig.getModelConfig(model);
+    if (cfg) return cfg;
+  } catch (e) {}
+  return FALLBACK_MODEL_CONFIGS[model] || FALLBACK_MODEL_CONFIGS['qwen-vl-max-2025-08-13'];
 }
 
 /**

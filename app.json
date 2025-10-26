@@ -4,7 +4,10 @@
     "pages/add/add",
     "pages/detail/detail",
     "pages/settings/settings",
-    "pages/profile/profile"
+    "pages/sysconfig/sysconfig",
+    "pages/friends/friends",
+    "pages/profile/profile",
+    "pages/share/landing"
   ],
   "window": {
     "backgroundTextStyle": "light",

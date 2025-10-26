@@ -1,5 +1,5 @@
 const modelUtils = require('../../utils/model_utils.js');
-const cloudUtils = require('../../utils/cloud_utils.js');
+const backend = require('../../utils/backend_service.js');
 const i18n = require('../../utils/i18n.js');
 Page({
   data: {
@@ -52,9 +52,11 @@ Page({
     app.setRandomTitle();
   },
   loadSettings: function() {
+    const systemConfig = require('../../utils/system_config.js');
     const settings = wx.getStorageSync('appSettings') || {};
+    const sysModel = (systemConfig.getAi().selectedModel) || null;
     this.setData({
-      selectedModel: settings.selectedModel || 'baidu' // 默认使用百度
+      selectedModel: sysModel || settings.selectedModel || 'baidu'
     });
   },
   checkLocationPermission: function() {
@@ -124,9 +126,9 @@ Page({
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
         // Upload to cloud when available; fallback to local saveFile
-        if (cloudUtils.isCloudAvailable()) {
+        if (backend.isAvailable()) {
           console.log('[add] cloud available, uploading image');
-          cloudUtils.uploadImage(tempFilePath)
+          backend.uploadImage(tempFilePath)
             .then(fileID => {
               // Use cloud fileID as image reference
               console.log('[add] upload success fileID:', fileID);
@@ -327,6 +329,15 @@ Page({
     }
     
     const plantList = wx.getStorageSync('plantList') || [];
+    // Enforce system-level plant count limit
+    try {
+      const systemConfig = require('../../utils/system_config.js');
+      const limits = systemConfig.getLimits();
+      if (Array.isArray(plantList) && plantList.length >= (limits.maxPlantsPerUser || 200)) {
+        wx.showToast({ title: this.translate('add', 'recognition.limitReached') || '已达植物数量上限', icon: 'none' });
+        return;
+      }
+    } catch (e) {}
     const currentTime = new Date();
     const newPlant = {
       id: Date.now(),
@@ -357,8 +368,8 @@ Page({
     // Persist to cloud database once (best-effort, with short timeout)
     const ensurePersist = new Promise((resolve) => {
       try {
-        if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
-          cloudUtils.savePlantList(plantList).then(() => resolve()).catch(() => resolve());
+        if (backend && backend.savePlantList) {
+          backend.savePlantList(plantList).then(() => resolve()).catch(() => resolve());
         } else { resolve(); }
       } catch (e) { resolve(); }
       // Safety timeout 1s

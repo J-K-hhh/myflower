@@ -1,0 +1,17 @@
+<view class="container">
+  <view wx:if="{{list.length === 0}}" class="empty">
+    <text>暂无朋友分享</text>
+  </view>
+  <scroll-view scroll-y="true" class="list">
+    <block wx:for="{{list}}" wx:key="key">
+      <view class="card" bindtap="openShare" data-owner="{{item.ownerOpenId}}" data-pid="{{item.plantId}}" data-ownername="{{item.ownerNickname}}">
+        <image class="thumb" src="{{item.thumb}}" mode="aspectFill"></image>
+        <view class="meta">
+          <view class="name">{{item.name}}</view>
+          <view class="owner">{{item.ownerNickname || '微信好友'}}</view>
+          <view class="status">{{item.lastStatus}}</view>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+</view>

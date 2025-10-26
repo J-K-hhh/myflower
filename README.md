@@ -10,6 +10,7 @@
   - Batch operations for watering and fertilizing
   - Image management with memos and ordering
   - Plant sharing to WeChat friends and moments
+  - Share Landing page and Home Friends strip
 
 ## How does it work?
 - Using the API of the model qwen-vl-max to analyze your plant
@@ -23,7 +24,7 @@
 - **Health Analysis**: AI-powered plant health assessment
 - **Batch Operations**: Manage multiple plants simultaneously
 - **Image Management**: Organize photos with memos and custom ordering
-- **Sharing**: Share plant information with friends via WeChat
+- **Sharing**: Share plant information with friends via WeChat, with a dedicated Share Landing and a Home “Friends” strip
 - **Cloud Sync**: Data synchronization across devices
 
 ## Get Started
@@ -39,3 +40,14 @@ You can ask for help in:
 
 ## License
 This program is licensed under the ISC License.
+
+## New: Share Landing + Friends (M1)
+
+- Share Landing: recipients of a WeChat forward open a dedicated page highlighting the cover image, latest status (watering/fertilizing), memo summary, and lightweight interactions (local likes/comments).
+- Home Friends Section: once you tap `关注到我的首页` on a shared plant, a horizontal strip appears on the Home page showing up to 10 followed shares from the recent 14 days, with quick entry back to the landing page.
+- Forward path and deep links: `pages/share/landing?owner=<openid>&pid=<id>&from=wxcard&scene=forward`.
+
+How to test locally (DevTools):
+- Detail page → Share → send to another account; or manually open the deep link with `owner=<your openid>&pid=<plant id>`.
+- On the landing page, tap `关注到我的首页` to follow; the Home page shows the Friends strip after returning.
+- Comments/likes are stored locally for M1; backend models (Share/Follow/Activity) can be added in later milestones.

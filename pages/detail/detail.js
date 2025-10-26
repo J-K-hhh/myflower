@@ -1,5 +1,6 @@
 const modelUtils = require('../../utils/model_utils.js');
-const cloudUtils = require('../../utils/cloud_utils.js');
+const backend = require('../../utils/backend_service.js');
+const systemConfig = require('../../utils/system_config.js');
 const i18n = require('../../utils/i18n.js');
 
 Page({
@@ -132,10 +133,13 @@ Page({
 
   loadSettings: function() {
     const settings = wx.getStorageSync('appSettings') || {};
+    const limits = systemConfig.getLimits();
+    const maxPhotosUser = settings.maxPhotos || limits.maxImagesPerPlant;
+    const maxRecordsUser = settings.maxRecords || limits.maxRecordsPerPlant;
     this.setData({
-      selectedModel: settings.selectedModel || 'baidu',
-      maxPhotos: settings.maxPhotos || 10,
-      maxRecords: settings.maxRecords || 50
+      selectedModel: (systemConfig.getAi().selectedModel || settings.selectedModel || 'baidu'),
+      maxPhotos: Math.min(maxPhotosUser, limits.maxImagesPerPlant),
+      maxRecords: Math.min(maxRecordsUser, limits.maxRecordsPerPlant)
     });
   },
 
@@ -226,8 +230,8 @@ Page({
   loadFromCloud: function(plantId) {
     wx.showLoading({ title: this.translate('detail', 'status.loading') });
     
-    if (cloudUtils && cloudUtils.loadPlantList) {
-      cloudUtils.loadPlantList().then(cloudList => {
+    if (backend && backend.loadPlantList) {
+      backend.loadPlantList().then(cloudList => {
         wx.hideLoading();
         const plant = cloudList.find(p => p.id == plantId);
         if (plant) {
@@ -261,14 +265,13 @@ Page({
 
     if (hasCloudImages) {
       try {
-        const cloudUtils = require('../../utils/cloud_utils.js');
         const cloudIds = plant.images.filter(img => typeof img === 'string' && img.indexOf('cloud://') === 0);
         const infoIds = (plant.imageInfos || []).map(i => i && i.path).filter(path =>
           typeof path === 'string' && path.indexOf('cloud://') === 0
         );
         const fileList = Array.from(new Set([...cloudIds, ...infoIds]));
 
-        cloudUtils.getTempUrlsCached(fileList).then((map) => {
+        backend.getTempUrlsCached(fileList).then((map) => {
           // 建立反向映射：tempURL -> fileID，供后续保存时还原
           this._tempUrlReverseMap = this._tempUrlReverseMap || {};
           Object.keys(map).forEach(fid => {
@@ -316,8 +319,8 @@ Page({
   loadSharedPlantByOwner: function(ownerOpenId, plantId) {
     wx.showLoading({ title: this.translate('detail', 'status.loadingShare') });
     
-    if (cloudUtils && cloudUtils.loadSharedPlantByOwner) {
-      cloudUtils.loadSharedPlantByOwner(ownerOpenId, plantId).then((result) => {
+    if (backend && backend.loadSharedPlantByOwner) {
+      backend.loadSharedPlantByOwner(ownerOpenId, plantId).then((result) => {
         wx.hideLoading();
         const plant = result && result.plant ? result.plant : result;
         if (plant) {
@@ -361,9 +364,9 @@ Page({
 
   // 同步到云端
   syncToCloud: function(plantList) {
-    if (cloudUtils && cloudUtils.isCloudAvailable && cloudUtils.savePlantList) {
+    if (backend && backend.savePlantList) {
       setTimeout(() => {
-        cloudUtils.savePlantList(plantList).catch(err => {
+        backend.savePlantList(plantList).catch(err => {
           console.error('云端同步失败:', err);
         });
       }, 100);
@@ -417,6 +420,11 @@ Page({
   },
 
   saveName: function () {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: '只读模式', icon: 'none' });
+      this.setData({ isEditingName: false });
+      return;
+    }
     const newName = this.data.editingName.trim();
     if (!newName) {
       wx.showToast({ title: this.translate('detail', 'errors.nameRequired'), icon: 'none' });
@@ -446,18 +454,30 @@ Page({
 
   // 浇水记录
   updateWatering: function () {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: '只读模式', icon: 'none' });
+      return;
+    }
     const today = new Date().toISOString().split('T')[0];
     this.updatePlantDataWithHistory('lastWateringDate', today, 'wateringHistory', this.translate('detail', 'toast.wateringUpdated'));
   },
 
   // 施肥记录
   updateFertilizing: function () {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: '只读模式', icon: 'none' });
+      return;
+    }
     const today = new Date().toISOString().split('T')[0];
     this.updatePlantDataWithHistory('lastFertilizingDate', today, 'fertilizingHistory', this.translate('detail', 'toast.fertilizingUpdated'));
   },
 
   // 拍照功能
   takePhoto: function () {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: '只读模式', icon: 'none' });
+      return;
+    }
     if (this.data.plant.images && this.data.plant.images.length >= this.data.maxPhotos) {
       wx.showToast({
         title: this.translate('detail', 'image.limitReached', { count: this.data.maxPhotos }),
@@ -475,8 +495,8 @@ Page({
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
         
-        if (cloudUtils.isCloudAvailable()) {
-          cloudUtils.uploadImage(tempFilePath)
+        if (backend.isAvailable()) {
+          backend.uploadImage(tempFilePath)
             .then(fileID => {
               if (this.data.selectedModel === 'qwen-vl') {
                 this.analyzePlantHealth(tempFilePath);
@@ -552,6 +572,7 @@ Page({
 
   // 添加照片到植物
   addPhotoToPlant: function(filePath, healthAnalysis = null) {
+    if (this.data.readonlyShareView) { return; }
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
@@ -567,8 +588,8 @@ Page({
           updatedPlant.imageInfos.pop();
           
           // 清理被移除的云端文件
-          if (removedImage && removedImage.indexOf('cloud://') === 0 && cloudUtils.deleteCloudFiles) {
-            cloudUtils.deleteCloudFiles([removedImage]);
+          if (removedImage && removedImage.indexOf('cloud://') === 0 && backend.deleteFiles) {
+            backend.deleteFiles([removedImage]);
           }
         }
         
@@ -626,6 +647,10 @@ Page({
 
   // 设置封面图片
   setCoverImage: function (e) {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: '只读模式', icon: 'none' });
+      return;
+    }
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
     const imageInfos = this.data.plant.imageInfos || [];
@@ -652,6 +677,10 @@ Page({
 
   // 删除图片
   deleteImage: function (e) {
+    if (this.data.readonlyShareView) {
+      wx.showToast({ title: this.translate('detail', 'errors.readonly'), icon: 'none' });
+      return;
+    }
     const index = e.currentTarget.dataset.index;
     const images = this.data.plant.images;
     
@@ -687,8 +716,8 @@ Page({
             filesToDelete.push(removedInfoPath);
           }
           
-          if (filesToDelete.length > 0 && cloudUtils.deleteCloudFiles) {
-            cloudUtils.deleteCloudFiles(filesToDelete);
+          if (filesToDelete.length > 0 && backend.deleteFiles) {
+            backend.deleteFiles(filesToDelete);
           }
         }
       }
@@ -1043,8 +1072,8 @@ Page({
           this.syncToCloud(newList);
           
           // 清理云端文件
-          if (allFileIds.length > 0 && cloudUtils.deleteCloudFiles) {
-            cloudUtils.deleteCloudFiles(allFileIds);
+          if (allFileIds.length > 0 && backend.deleteFiles) {
+            backend.deleteFiles(allFileIds);
           }
           
           wx.showToast({ title: this.translate('detail', 'modals.deletePlantSuccess'), icon: 'success', duration: 1500 });
@@ -1058,14 +1087,14 @@ Page({
   onShareAppMessage: function() {
     const plant = this.data.plant;
     const owner = this.data.shareOwnerOpenId || (getApp() && getApp().openid) || '';
-    const path = owner && this.data.plantId
-      ? `/pages/detail/detail?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
-      : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
-    
     // 获取用户昵称
     const app = getApp();
     const userProfile = app && app.globalData && app.globalData.userProfile;
     const nickname = userProfile && userProfile.nickname ? userProfile.nickname : '我';
+    
+    const path = owner && this.data.plantId
+      ? `/pages/share/landing?owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}&nick=${encodeURIComponent(nickname)}&from=wxcard&scene=forward`
+      : `/pages/detail/detail?id=${encodeURIComponent(this.data.plantId)}`;
     const plantName = plant.aiResult.name || this.translate('common', 'unknownPlant');
     
     return {
@@ -1078,14 +1107,14 @@ Page({
   onShareTimeline: function() {
     const plant = this.data.plant;
     const owner = this.data.shareOwnerOpenId || (getApp() && getApp().openid) || '';
-    const query = owner && this.data.plantId
-      ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}`
-      : `id=${encodeURIComponent(this.data.plantId)}`;
-    
     // 获取用户昵称
     const app = getApp();
     const userProfile = app && app.globalData && app.globalData.userProfile;
     const nickname = userProfile && userProfile.nickname ? userProfile.nickname : '我';
+    
+    const query = owner && this.data.plantId
+      ? `owner=${encodeURIComponent(owner)}&pid=${encodeURIComponent(this.data.plantId)}&nick=${encodeURIComponent(nickname)}`
+      : `id=${encodeURIComponent(this.data.plantId)}`;
     const plantName = plant.aiResult.name || this.translate('common', 'unknownPlant');
     
     return {
@@ -1109,8 +1138,8 @@ Page({
       // 如果是云存储图片，需要先转换为临时URL（使用缓存）
       if (imageUrl && imageUrl.indexOf('cloud://') === 0) {
         try {
-          const cloudUtils = require('../../utils/cloud_utils.js');
-          cloudUtils.getTempUrlsCached([imageUrl]).then((map) => {
+          const backend = require('../../utils/backend_service.js');
+          backend.getTempUrlsCached([imageUrl]).then((map) => {
             const url = map[imageUrl] || imageUrl;
             this.drawShareImage(url, plant, resolve);
           }).catch(() => resolve(imageUrl));

@@ -78,6 +78,9 @@
     <view class="danger-button" bindtap="clearAllData">
       <text>{{i18n.buttons.clearData}}</text>
     </view>
+    <view class="admin-button" bindtap="goToSystemConfig">
+      <text>系统设置（管理员）</text>
+    </view>
   </view>
 
   <!-- 存储限制（倒数第二） -->

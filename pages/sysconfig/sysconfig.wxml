@@ -1,0 +1,77 @@
+<view class="container">
+  <view class="section">
+    <view class="section-title">后端系统</view>
+    <radio-group bindchange="onBackendTypeChange">
+      <view class="radio-item"><radio value="tencent" checked="{{backend.type==='tencent'}}"/> <text>腾讯云 (WeChat Cloud)</text></view>
+      <view class="radio-item"><radio value="local" checked="{{backend.type==='local'}}"/> <text>本地（无云）</text></view>
+      <view class="radio-item"><radio value="custom-http" checked="{{backend.type==='custom-http'}}"/> <text>自定义 HTTP</text></view>
+    </radio-group>
+    <view wx:if="{{backend.type==='custom-http'}}">
+      <view class="field">
+        <text class="label">Base URL</text>
+        <input class="input" placeholder="https://api.example.com" value="{{backend.options.baseUrl}}" bindinput="onBaseUrlInput" />
+      </view>
+      <view class="field">
+        <text class="label">API Key</text>
+        <input class="input" placeholder="api key" value="{{backend.options.apiKey}}" bindinput="onHttpApiKeyInput" />
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">AI 模型</view>
+    <view class="field">
+      <text class="label">当前模型</text>
+      <picker mode="selector" range="{{modelOptions}}" range-key="name" value="{{modelIndex}}" bindchange="onModelPick">
+        <view class="picker">{{ai.selectedModel}}</view>
+      </picker>
+    </view>
+    <view class="subsection">
+      <view class="sub-title">Baidu</view>
+      <view class="field">
+        <text class="label">API Key</text>
+        <input class="input" placeholder="" value="{{ai.models.baidu.apiKey}}" bindinput="onBaiduKeyInput" />
+      </view>
+      <view class="field">
+        <text class="label">Secret Key</text>
+        <input class="input" placeholder="" value="{{ai.models.baidu.secretKey}}" bindinput="onBaiduSecretInput" />
+      </view>
+    </view>
+    <view class="subsection">
+      <view class="sub-title">Qwen-VL</view>
+      <view class="field">
+        <text class="label">API Key</text>
+        <input class="input" placeholder="" value="{{ai.models['qwen-vl-max-2025-08-13'].apiKey}}" bindinput="onQwenKeyInput" />
+      </view>
+    </view>
+    <view class="subsection">
+      <view class="sub-title">Gemini</view>
+      <view class="field">
+        <text class="label">API Key</text>
+        <input class="input" placeholder="" value="{{ai.models['gemini-pro-vision'].apiKey}}" bindinput="onGeminiKeyInput" />
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">系统限制</view>
+    <view class="field">
+      <text class="label">单用户最多植物</text>
+      <input class="input" type="number" value="{{limits.maxPlantsPerUser}}" bindinput="onMaxPlantsInput" />
+    </view>
+    <view class="field">
+      <text class="label">单植物最多图片</text>
+      <input class="input" type="number" value="{{limits.maxImagesPerPlant}}" bindinput="onMaxImagesInput" />
+    </view>
+    <view class="field">
+      <text class="label">单植物最多记录</text>
+      <input class="input" type="number" value="{{limits.maxRecordsPerPlant}}" bindinput="onMaxRecordsInput" />
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="btn" bindtap="saveAll">保存设置</button>
+    <button class="btn secondary" bindtap="reload">重新加载</button>
+  </view>
+</view>
+

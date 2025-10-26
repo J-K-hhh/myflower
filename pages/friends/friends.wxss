@@ -1,0 +1,10 @@
+.container { padding: 16rpx; }
+.empty { text-align: center; color: #888; padding: 100rpx 0; }
+.list { height: calc(100vh - 32rpx); }
+.card { display: flex; gap: 12rpx; background: #fff; border-radius: 16rpx; overflow: hidden; margin-bottom: 12rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.06); border: 1rpx solid #f0f0f0; }
+.thumb { width: 260rpx; height: 180rpx; }
+.meta { flex: 1; padding: 12rpx; }
+.name { font-weight: 600; font-size: 28rpx; color: #2c3e50; }
+.owner { color: #7f8c8d; font-size: 24rpx; margin: 4rpx 0; }
+.status { color: #2e7d32; font-size: 24rpx; background: #e8f5e9; padding: 6rpx 10rpx; border-radius: 8rpx; display: inline-block; }
+

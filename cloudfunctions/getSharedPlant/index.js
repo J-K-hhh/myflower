@@ -3,7 +3,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 exports.main = async (event, context) => {
   const db = cloud.database();
-  const { ownerOpenId, plantId } = event || {};
+  const { ownerOpenId, plantId, shareNickname } = event || {};
   if (!ownerOpenId || !plantId) {
     return { ok: false, error: 'missing_params' };
   }
@@ -30,14 +30,21 @@ exports.main = async (event, context) => {
     
     // 3) 获取用户真实昵称
     let ownerNickname = '朋友'; // 默认昵称
-    try {
-      const userProfileDoc = await db.collection('user_profiles').doc(ownerOpenId).get();
-      if (userProfileDoc.data && userProfileDoc.data.nickname) {
-        ownerNickname = userProfileDoc.data.nickname;
+    
+    // 优先使用分享时传递的昵称
+    if (shareNickname && shareNickname.trim() !== '') {
+      ownerNickname = shareNickname.trim();
+    } else {
+      // 尝试从用户资料集合获取
+      try {
+        const userProfileDoc = await db.collection('user_profiles').doc(ownerOpenId).get();
+        if (userProfileDoc.data && userProfileDoc.data.nickname) {
+          ownerNickname = userProfileDoc.data.nickname;
+        }
+      } catch (e) {
+        console.warn('Failed to get user profile:', e);
+        // 使用默认昵称
       }
-    } catch (e) {
-      console.warn('Failed to get user profile:', e);
-      // 使用默认昵称
     }
     
     // Sanitize: only return fields needed for display
