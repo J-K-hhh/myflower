@@ -3,6 +3,7 @@
     "pages/index/index",
     "pages/add/add",
     "pages/detail/detail",
+    "pages/photo-add/photo-add",
     "pages/settings/settings",
     "pages/sysconfig/sysconfig",
     "pages/friends/friends",

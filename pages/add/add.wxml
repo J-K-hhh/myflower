@@ -33,6 +33,25 @@
       </view>
     </view>
 
+    <!-- 照片日期（可编辑） -->
+    <view class="section" wx:if="{{tempImagePath}}">
+      <view class="section-title">{{i18n.sections.photoInfo}}</view>
+      <view class="form-group">
+        <view class="form-item">
+          <text class="item-label">
+            <text class="label-icon">📅</text>
+            {{i18n.form.photoDate}}
+          </text>
+          <picker mode="date" value="{{photoDate}}" bindchange="bindPhotoDateChange">
+            <view class="picker {{photoDate ? '' : 'picker-empty'}}">
+              <text class="picker-icon">📆</text>
+              {{photoDate || i18n.form.selectDate}}
+            </view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
     <!-- 2. AI 识别结果展示 -->
     <view class="section" wx:if="{{isLoading}}">
       <view class="loading-container">

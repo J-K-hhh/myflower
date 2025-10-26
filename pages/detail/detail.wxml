@@ -1,6 +1,6 @@
 <!--pages/detail/detail.wxml-->
 <view class="container">
-  <swiper class="image-swiper" indicator-dots="true" autoplay="{{editingMemoIndex < 0}}" interval="3000" duration="500">
+  <swiper class="image-swiper" indicator-dots="true" autoplay="{{editingMemoIndex < 0}}" interval="3000" duration="500" bindchange="onImageSwiperChange">
     <swiper-item wx:for="{{plant.images}}" wx:key="*this">
       <view class="image-container">
         <image src="{{item}}" class="swiper-image" mode="aspectFill" bindtap="previewImage" data-src="{{item}}"></image>
@@ -45,6 +45,24 @@
       </view>
     </swiper-item>
   </swiper>
+
+  <!-- 分享评论（仅所有者可见） -->
+  <view class="content-box" wx:if="{{!readonlyShareView}}">
+    <view class="section-title">
+      <text class="title-icon">💬</text>
+      <text>{{i18n.comments.title}}</text>
+    </view>
+    <view class="comment-list-owner">
+      <view class="comment-empty" wx:if="{{(shareComments || []).length === 0}}">{{i18n.comments.none}}</view>
+      <block wx:for="{{shareCommentsToShow}}" wx:key="id">
+        <view class="comment-item">
+          <text class="comment-nick">{{item.nickname}}：</text>
+          <text class="comment-content">{{item.content}}</text>
+          <text class="comment-time"> {{item.timeText}}</text>
+        </view>
+      </block>
+    </view>
+  </view>
 
   <!-- 全屏备忘编辑面板（更友好的编辑体验） -->
   <view wx:if="{{editingMemoIndex >= 0 && !readonlyShareView}}" class="memo-editor-modal" catchtouchmove="true">

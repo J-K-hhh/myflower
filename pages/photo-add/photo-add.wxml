@@ -1,0 +1,18 @@
+<view class="container">
+  <view class="preview">
+    <image class="image" src="{{filePath}}" mode="aspectFill"></image>
+  </view>
+  <view class="section">
+    <view class="label">📅 {{i18nPhoto.dateLabel}}</view>
+    <picker mode="date" value="{{dateString}}" bindchange="onDateChange">
+      <view class="picker">
+        <text class="picker-icon">📆</text>
+        <text>{{dateString}}</text>
+      </view>
+    </picker>
+  </view>
+  <view class="actions">
+    <button class="btn cancel" bindtap="onCancel">{{i18nCommon.cancel}}</button>
+    <button class="btn confirm" type="primary" bindtap="onConfirm">{{i18nCommon.ok}}</button>
+  </view>
+</view>

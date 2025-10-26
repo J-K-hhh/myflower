@@ -98,7 +98,8 @@ const translations = {
       sections: {
         recognitionInfo: '识别信息',
         recognitionResult: '识别结果',
-        careInfo: '养护信息'
+        careInfo: '养护信息',
+        photoInfo: '照片信息'
       },
       info: {
         currentModel: '当前模型：',
@@ -125,7 +126,8 @@ const translations = {
       form: {
         lastWatering: '上次浇水',
         lastFertilizing: '上次施肥',
-        selectDate: '请选择日期'
+        selectDate: '请选择日期',
+        photoDate: '照片日期'
       },
       buttons: {
         save: '🌱 种下绿植',
@@ -162,7 +164,15 @@ const translations = {
         successModalTitle: '🌱 种下成功！'
       }
     },
+    photoAdd: {
+      title: '编辑照片日期',
+      dateLabel: '照片日期'
+    },
     detail: {
+      comments: {
+        title: '朋友留言',
+        none: '暂无留言'
+      },
       image: {
         setCover: '设为题图',
         delete: '删除',
@@ -470,7 +480,8 @@ const translations = {
       sections: {
         recognitionInfo: 'Recognition Info',
         recognitionResult: 'Recognition Result',
-        careInfo: 'Care Info'
+        careInfo: 'Care Info',
+        photoInfo: 'Photo Info'
       },
       info: {
         currentModel: 'Model:',
@@ -497,7 +508,8 @@ const translations = {
       form: {
         lastWatering: 'Last Watering',
         lastFertilizing: 'Last Fertilizing',
-        selectDate: 'Select a date'
+        selectDate: 'Select a date',
+        photoDate: 'Photo Date'
       },
       buttons: {
         save: '🌱 Save Plant',
@@ -534,7 +546,15 @@ const translations = {
         successModalTitle: '🌱 Added Successfully!'
       }
     },
+    photoAdd: {
+      title: 'Edit Photo Date',
+      dateLabel: 'Photo Date'
+    },
     detail: {
+      comments: {
+        title: 'Friend Comments',
+        none: 'No comments yet'
+      },
       image: {
         setCover: 'Set as Cover',
         delete: 'Delete',

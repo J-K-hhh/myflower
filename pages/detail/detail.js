@@ -2,6 +2,7 @@ const modelUtils = require('../../utils/model_utils.js');
 const backend = require('../../utils/backend_service.js');
 const systemConfig = require('../../utils/system_config.js');
 const i18n = require('../../utils/i18n.js');
+const exifUtils = require('../../utils/exif_utils.js');
 
 Page({
   data: {
@@ -30,7 +31,10 @@ Page({
     i18nCommon: i18n.getSection('common'),
     language: i18n.getLanguage(),
     // 键盘与自动保存
-    keyboardHeight: 0
+    keyboardHeight: 0,
+    // 分享评论（按当前图片）
+    shareComments: [],
+    shareCommentsToShow: []
   },
 
   onLoad: function (options) {
@@ -189,6 +193,15 @@ Page({
     
     // 确保图片信息数组存在且与图片数组对齐
     this.ensureImageInfosAlignment(plant);
+
+    // 默认按时间倒序排序（除非用户手动调整过）
+    if (!plant.manualOrder) {
+      const pairs = (plant.imageInfos || []).map(info => ({ info, path: info && info.path }));
+      // 默认按时间正序（旧->新）展示
+      pairs.sort((a, b) => (a.info && a.info.timestamp ? a.info.timestamp : 0) - (b.info && b.info.timestamp ? b.info.timestamp : 0));
+      plant.imageInfos = pairs.map(p => p.info);
+      plant.images = pairs.map(p => p.path);
+    }
     
     // 设置页面数据
     this.setData({ plant: plant });
@@ -201,6 +214,7 @@ Page({
     
     // 预生成分享图片
     this.generateShareImage();
+    try { this.loadShareCommentsForIndex(0); } catch (e) {}
   },
 
   // 确保图片信息与图片数组对齐
@@ -216,7 +230,7 @@ Page({
         return {
           path: imgPath,
           timestamp: existingInfo?.timestamp || (typeof plant.createTime === 'number' ? plant.createTime : Date.now()),
-          date: existingInfo?.date || new Date(typeof plant.createTime === 'number' ? plant.createTime : Date.now()).toISOString().split('T')[0],
+          date: existingInfo?.date || new Date(existingInfo?.timestamp || (typeof plant.createTime === 'number' ? plant.createTime : Date.now())).toISOString().split('T')[0],
           memo: existingInfo?.memo || ''
         };
       });
@@ -224,6 +238,36 @@ Page({
       // 保存到本地
       this.savePlantToLocal(plant);
     }
+  },
+
+  // 载入当前图片的分享评论（仅所有者查看）
+  loadShareCommentsForIndex: function(index) {
+    if (this.data.readonlyShareView) return;
+    const images = Array.isArray(this.data.plant.images) ? this.data.plant.images : [];
+    if (!images.length) { this.setData({ shareComments: [], shareCommentsToShow: [] }); return; }
+    const path = images[index] || images[0];
+    const canonicalPath = this._toCanonicalPath(path);
+    const ownerIdPromise = new Promise((resolve) => {
+      const app = getApp();
+      if (this.data.shareOwnerOpenId) { resolve(this.data.shareOwnerOpenId); return; }
+      if (app && app.openid) { resolve(app.openid); return; }
+      try { wx.cloud.callFunction({ name: 'login' }).then(r => resolve((r && r.result && r.result.openid) || '')).catch(() => resolve('')); } catch (e) { resolve(''); }
+    });
+    ownerIdPromise.then((ownerOpenId) => {
+      if (!ownerOpenId) { this.setData({ shareComments: [], shareCommentsToShow: [] }); return; }
+      const backend = require('../../utils/backend_service.js');
+      const shareUtils = require('../../utils/share_utils.js');
+      const key = shareUtils.shareKey(ownerOpenId, this.data.plantId || (this.data.plant && this.data.plant.id));
+      backend.listShareComments(ownerOpenId, this.data.plantId || (this.data.plant && this.data.plant.id), canonicalPath, 50).then(items => {
+        const map = (items || []).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
+        const local = shareUtils.getCommentsByImage(key, canonicalPath).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
+        const list = map.length > 0 ? map : local;
+        this.setData({ shareComments: list, shareCommentsToShow: list.slice(0, 3) });
+      }).catch(() => {
+        const local = shareUtils.getCommentsByImage(key, canonicalPath).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
+        this.setData({ shareComments: local, shareCommentsToShow: local.slice(0, 3) });
+      });
+    });
   },
 
   // 从云端加载数据
@@ -247,6 +291,10 @@ Page({
       wx.hideLoading();
       this.showPlantNotFound();
     }
+  },
+  onImageSwiperChange: function(e) {
+    const idx = (e && e.detail && typeof e.detail.current === 'number') ? e.detail.current : 0;
+    try { this.loadShareCommentsForIndex(idx); } catch (err) {}
   },
 
   showPlantNotFound: function() {
@@ -490,18 +538,33 @@ Page({
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
+      sizeType: ['original'],
       sourceType: ['album', 'camera'],
       camera: 'back',
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
+        // 调试弹窗：读取EXIF日期
+        try {
+          exifUtils.extractImageDateWithDebug(tempFilePath).then((dbg) => {
+            const title = '照片日期调试';
+            const content = dbg && dbg.success
+              ? `成功读取日期\n时间戳: ${dbg.data.timestamp}\n日期: ${dbg.data.dateString}`
+              : `未能读取日期\n原因: ${dbg ? dbg.reason : 'unknown'}\n详情: ${dbg ? dbg.details : ''}`;
+            wx.showModal({ title, content, showCancel: false, confirmText: this.translate('common', 'ok') });
+          }).catch(() => {});
+        } catch (e) {}
         
         if (backend.isAvailable()) {
           backend.uploadImage(tempFilePath)
             .then(fileID => {
               if (this.data.selectedModel === 'qwen-vl') {
-                this.analyzePlantHealth(tempFilePath);
+                // 先健康分析，再进入日期编辑页
+                this.analyzePlantHealth(tempFilePath, (health) => {
+                  this.openPhotoDateEditor(fileID, tempFilePath, health);
+                });
               } else {
-                this.addPhotoToPlant(fileID);
+                // 打开日期编辑页，让用户确认/修改日期
+                this.openPhotoDateEditor(fileID, tempFilePath, null);
               }
             })
             .catch(() => {
@@ -523,23 +586,27 @@ Page({
       success: (saveRes) => {
         const savedPath = saveRes.savedFilePath;
         if (this.data.selectedModel === 'qwen-vl') {
-          this.analyzePlantHealth(savedPath);
+          this.analyzePlantHealth(savedPath, (health) => {
+            this.openPhotoDateEditor(savedPath, savedPath, health);
+          });
         } else {
-          this.addPhotoToPlant(savedPath);
+          this.openPhotoDateEditor(savedPath, savedPath, null);
         }
       },
       fail: () => {
         if (this.data.selectedModel === 'qwen-vl') {
-          this.analyzePlantHealth(tempFilePath);
+          this.analyzePlantHealth(tempFilePath, (health) => {
+            this.openPhotoDateEditor(tempFilePath, tempFilePath, health);
+          });
         } else {
-          this.addPhotoToPlant(tempFilePath);
+          this.openPhotoDateEditor(tempFilePath, tempFilePath, null);
         }
       }
     });
   },
 
   // 植物健康分析
-  analyzePlantHealth: function(filePath) {
+  analyzePlantHealth: function(filePath, cb) {
     wx.showLoading({ title: this.translate('detail', 'status.analyzingHealth') });
     
     const location = this.data.locationEnabled ? this.data.currentLocation : null;
@@ -554,7 +621,11 @@ Page({
           confirmText: this.translate('detail', 'modals.savePhoto'),
           success: (res) => {
             if (res.confirm) {
-              this.addPhotoToPlant(filePath, result);
+              if (typeof cb === 'function') {
+                cb(result);
+              } else {
+                this.addPhotoToPlant(filePath, result);
+              }
             }
           }
         });
@@ -566,82 +637,144 @@ Page({
           icon: 'none',
           duration: 3000
         });
-        this.addPhotoToPlant(filePath);
+        if (typeof cb === 'function') {
+          cb(null);
+        } else {
+          this.addPhotoToPlant(filePath);
+        }
       });
   },
 
+  // 打开日期编辑页，允许用户修改照片日期
+  openPhotoDateEditor: function(filePath, exifLocalPath = null, healthAnalysis = null) {
+    const localCandidate = exifLocalPath || (typeof filePath === 'string' && filePath.indexOf('cloud://') === 0 ? null : filePath);
+    const nowTs = Date.now();
+    const fallback = { timestamp: nowTs, dateString: new Date(nowTs).toISOString().split('T')[0] };
+    const proceed = (defaultDate) => {
+      wx.navigateTo({
+        url: '/pages/photo-add/photo-add',
+        success: (res) => {
+          const ec = res.eventChannel;
+          try { ec.emit('initData', { filePath, dateInfo: defaultDate }); } catch (e) {}
+          if (ec && ec.on) {
+            ec.on('onPhotoDateSelected', (payload) => {
+              const dateInfo = (payload && payload.dateInfo) || defaultDate;
+              this.addPhotoToPlant(filePath, healthAnalysis, dateInfo);
+            });
+          }
+        }
+      });
+    };
+    if (localCandidate) {
+      exifUtils.extractImageDate(localCandidate).then((exifDate) => {
+        proceed(exifDate || fallback);
+      }).catch(() => proceed(fallback));
+    } else {
+      proceed(fallback);
+    }
+  },
+
   // 添加照片到植物
-  addPhotoToPlant: function(filePath, healthAnalysis = null) {
+  addPhotoToPlant: function(filePath, healthAnalysis = null, exifLocalPathOrDate = null) {
     if (this.data.readonlyShareView) { return; }
     const plantList = wx.getStorageSync('plantList') || [];
-    const updatedList = plantList.map(plant => {
-      if (plant.id == this.data.plantId) {
-        const updatedPlant = { ...plant };
-        
-        if (!updatedPlant.imageInfos) {
-          updatedPlant.imageInfos = [];
-        }
-        
-        // 如果达到照片数量限制，删除最旧的照片
-        if (updatedPlant.images && updatedPlant.images.length >= this.data.maxPhotos) {
-          const removedImage = updatedPlant.images.pop();
-          updatedPlant.imageInfos.pop();
-          
-          // 清理被移除的云端文件
-          if (removedImage && removedImage.indexOf('cloud://') === 0 && backend.deleteFiles) {
-            backend.deleteFiles([removedImage]);
-          }
-        }
-        
-        // 添加新图片和图片信息
-        const currentTime = Date.now();
-        const imageInfo = {
-          path: filePath,
-          timestamp: currentTime,
-          date: new Date(currentTime).toISOString().split('T')[0],
-          memo: ''
-        };
-        
-        updatedPlant.images = [filePath, ...(updatedPlant.images || [])];
-        updatedPlant.imageInfos = [imageInfo, ...updatedPlant.imageInfos];
-        
-        // 保存健康分析结果
-        if (healthAnalysis) {
-          if (!updatedPlant.healthAnalyses) {
-            updatedPlant.healthAnalyses = [];
-          }
-          updatedPlant.healthAnalyses.unshift({
-            ...healthAnalysis,
-            imagePath: filePath,
-            timestamp: currentTime
-          });
-          
-          if (updatedPlant.healthAnalyses.length > this.data.maxRecords) {
-            updatedPlant.healthAnalyses = updatedPlant.healthAnalyses.slice(0, this.data.maxRecords);
-          }
-        }
-        
-        return updatedPlant;
-      }
-      return plant;
-    });
-    
-    wx.setStorageSync('plantList', updatedList);
-    this.syncToCloud(updatedList);
-    try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
-    
-    const updatedPlant = updatedList.find(p => p.id == this.data.plantId);
-    this.setData({
-      'plant.images': updatedPlant.images,
-      'plant.imageInfos': updatedPlant.imageInfos || [],
-      'plant.healthAnalyses': updatedPlant.healthAnalyses || []
-    });
-    
-    wx.showToast({ title: this.translate('detail', 'toast.photoAdded'), icon: 'success' });
+    let presetDate = null;
+    let localCandidate = null;
+    if (exifLocalPathOrDate && typeof exifLocalPathOrDate === 'object' && typeof exifLocalPathOrDate.timestamp === 'number') {
+      presetDate = exifLocalPathOrDate;
+    } else {
+      localCandidate = exifLocalPathOrDate || (typeof filePath === 'string' && filePath.indexOf('cloud://') === 0 ? null : filePath);
+    }
+    const nowTs = Date.now();
+    const fallback = { timestamp: nowTs, dateString: new Date(nowTs).toISOString().split('T')[0] };
 
-    // 刷新展示用临时URL
-    if (updatedPlant) {
-      this.convertCloudImagesForDisplay(updatedPlant);
+    const applyUpdate = (dateInfo) => {
+      const d = dateInfo || fallback;
+      const updatedList = plantList.map(plant => {
+        if (plant.id == this.data.plantId) {
+          const updatedPlant = { ...plant };
+          
+          if (!updatedPlant.imageInfos) {
+            updatedPlant.imageInfos = [];
+          }
+          
+          // 如果达到照片数量限制，删除最旧的照片
+          if (updatedPlant.images && updatedPlant.images.length >= this.data.maxPhotos) {
+            const removedImage = updatedPlant.images.pop();
+            updatedPlant.imageInfos.pop();
+            
+            // 清理被移除的云端文件
+            if (removedImage && removedImage.indexOf('cloud://') === 0 && backend.deleteFiles) {
+              backend.deleteFiles([removedImage]);
+            }
+          }
+          
+          // 添加新图片和图片信息
+          const imageInfo = {
+            path: filePath,
+            timestamp: d.timestamp,
+            date: d.dateString,
+            memo: ''
+          };
+          
+          updatedPlant.images = [filePath, ...(updatedPlant.images || [])];
+          updatedPlant.imageInfos = [imageInfo, ...updatedPlant.imageInfos];
+
+          // 如果用户未手动调整过顺序，则按日期（时间戳）降序排序
+          if (!updatedPlant.manualOrder) {
+            const pairs = updatedPlant.imageInfos.map((info) => ({ info, path: info.path }));
+            // 默认按时间正序（旧->新）
+            pairs.sort((a, b) => (a.info.timestamp || 0) - (b.info.timestamp || 0));
+            updatedPlant.imageInfos = pairs.map(p => p.info);
+            updatedPlant.images = pairs.map(p => p.path);
+          }
+          
+          // 保存健康分析结果
+          if (healthAnalysis) {
+            if (!updatedPlant.healthAnalyses) {
+              updatedPlant.healthAnalyses = [];
+            }
+            updatedPlant.healthAnalyses.unshift({
+              ...healthAnalysis,
+              imagePath: filePath,
+              timestamp: d.timestamp
+            });
+            
+            if (updatedPlant.healthAnalyses.length > this.data.maxRecords) {
+              updatedPlant.healthAnalyses = updatedPlant.healthAnalyses.slice(0, this.data.maxRecords);
+            }
+          }
+          
+          return updatedPlant;
+        }
+        return plant;
+      });
+      
+      wx.setStorageSync('plantList', updatedList);
+      this.syncToCloud(updatedList);
+      try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
+      
+      const updatedPlant = updatedList.find(p => p.id == this.data.plantId);
+      this.setData({
+        'plant.images': updatedPlant.images,
+        'plant.imageInfos': updatedPlant.imageInfos || [],
+        'plant.healthAnalyses': updatedPlant.healthAnalyses || []
+      });
+      
+      wx.showToast({ title: this.translate('detail', 'toast.photoAdded'), icon: 'success' });
+
+      // 刷新展示用临时URL
+      if (updatedPlant) {
+        this.convertCloudImagesForDisplay(updatedPlant);
+      }
+    };
+
+    if (presetDate) {
+      applyUpdate(presetDate);
+    } else if (localCandidate) {
+      exifUtils.extractImageDate(localCandidate).then(applyUpdate).catch(() => applyUpdate(null));
+    } else {
+      applyUpdate(null);
     }
   },
 
@@ -671,7 +804,8 @@ Page({
       ...info,
       path: this._toCanonicalPath(info && info.path)
     }));
-    this.updatePlantImages(canonicalImages, canonicalInfos);
+    // 设置封面属于手动顺序调整
+    this.updatePlantImages(canonicalImages, canonicalInfos, true);
     wx.showToast({ title: this.translate('detail', 'image.setCoverSuccess'), icon: 'success' });
   },
 
@@ -725,14 +859,15 @@ Page({
   },
 
   // 更新植物图片
-  updatePlantImages: function (newImages, newImageInfos = null) {
+  updatePlantImages: function (newImages, newImageInfos = null, manualOrderFlag = null) {
     const plantList = wx.getStorageSync('plantList') || [];
     const updatedList = plantList.map(plant => {
       if (plant.id == this.data.plantId) {
         return {
           ...plant,
           images: newImages,
-          imageInfos: newImageInfos || plant.imageInfos
+          imageInfos: newImageInfos || plant.imageInfos,
+          manualOrder: (manualOrderFlag === null ? plant.manualOrder : !!manualOrderFlag)
         };
       }
       return plant;
@@ -1018,7 +1153,9 @@ Page({
       ...info,
       path: this._toCanonicalPath(info && info.path)
     }));
-    this.updatePlantImages(canonicalImages, canonicalInfos);
+    // 标记为已手动调整顺序
+    const updated = { ...this.data.plant, images: canonicalImages, imageInfos: canonicalInfos, manualOrder: true };
+    this.updatePlantImages(updated.images, updated.imageInfos, updated.manualOrder);
     wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   
@@ -1044,7 +1181,8 @@ Page({
       ...info,
       path: this._toCanonicalPath(info && info.path)
     }));
-    this.updatePlantImages(canonicalImages, canonicalInfos);
+    const updated = { ...this.data.plant, images: canonicalImages, imageInfos: canonicalInfos, manualOrder: true };
+    this.updatePlantImages(updated.images, updated.imageInfos, updated.manualOrder);
     wx.showToast({ title: this.translate('detail', 'image.orderUpdated'), icon: 'success' });
   },
   

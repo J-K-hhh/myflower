@@ -1,9 +1,15 @@
 const modelUtils = require('../../utils/model_utils.js');
 const backend = require('../../utils/backend_service.js');
 const i18n = require('../../utils/i18n.js');
+const exifUtils = require('../../utils/exif_utils.js');
 Page({
   data: {
     tempImagePath: '',
+    // 本地路径用于解析EXIF日期（cloud:// 时保留原始临时路径）
+    tempImageLocalPath: '',
+    // 照片日期（可编辑）
+    photoDate: '',
+    photoTimestamp: null,
     wateringDate: '',
     fertilizingDate: '',
     aiResult: {},
@@ -121,10 +127,21 @@ Page({
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
+      sizeType: ['original'],
       sourceType: ['album', 'camera'],
       camera: 'back',
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
+        // 调试弹窗：读取EXIF日期
+        try {
+          exifUtils.extractImageDateWithDebug(tempFilePath).then((dbg) => {
+            const title = '照片日期调试';
+            const content = dbg && dbg.success
+              ? `成功读取日期\n时间戳: ${dbg.data.timestamp}\n日期: ${dbg.data.dateString}`
+              : `未能读取日期\n原因: ${dbg ? dbg.reason : 'unknown'}\n详情: ${dbg ? dbg.details : ''}`;
+            wx.showModal({ title, content, showCancel: false, confirmText: this.translate('common', 'ok') });
+          }).catch(() => {});
+        } catch (e) {}
         // Upload to cloud when available; fallback to local saveFile
         if (backend.isAvailable()) {
           console.log('[add] cloud available, uploading image');
@@ -134,10 +151,13 @@ Page({
               console.log('[add] upload success fileID:', fileID);
               this.setData({
                 tempImagePath: fileID,
+                tempImageLocalPath: tempFilePath,
                 aiResult: {}
               });
               // For recognition, still need a real file path; use tempFilePath
               this.recognizeImage(tempFilePath);
+              // 设置默认照片日期并弹出编辑窗口
+              this.prepareAndOpenPhotoDateEditor(tempFilePath);
             })
             .catch((err) => {
               console.warn('[add] upload failed, fallback to saveFile:', err);
@@ -151,13 +171,15 @@ Page({
                 tempFilePath: tempFilePath,
                 success: (saveRes) => {
                   const savedPath = saveRes.savedFilePath;
-                  this.setData({ tempImagePath: savedPath, aiResult: {} });
+                  this.setData({ tempImagePath: savedPath, tempImageLocalPath: savedPath, aiResult: {} });
                   this.recognizeImage(savedPath);
+                  this.prepareAndOpenPhotoDateEditor(savedPath);
                 },
                 fail: (sfErr) => {
                   console.warn('[add] saveFile failed, fallback to temp path:', sfErr);
-                  this.setData({ tempImagePath: tempFilePath, aiResult: {} });
+                  this.setData({ tempImagePath: tempFilePath, tempImageLocalPath: tempFilePath, aiResult: {} });
                   this.recognizeImage(tempFilePath);
+                  this.prepareAndOpenPhotoDateEditor(tempFilePath);
                 }
               });
             });
@@ -173,18 +195,56 @@ Page({
             tempFilePath: tempFilePath,
             success: (saveRes) => {
               const savedPath = saveRes.savedFilePath;
-              this.setData({ tempImagePath: savedPath, aiResult: {} });
+              this.setData({ tempImagePath: savedPath, tempImageLocalPath: savedPath, aiResult: {} });
               this.recognizeImage(savedPath);
+              this.prepareAndOpenPhotoDateEditor(savedPath);
             },
             fail: (err) => {
               console.warn('[add] saveFile failed, fallback to temp path:', err);
-              this.setData({ tempImagePath: tempFilePath, aiResult: {} });
+              this.setData({ tempImagePath: tempFilePath, tempImageLocalPath: tempFilePath, aiResult: {} });
               this.recognizeImage(tempFilePath);
+              this.prepareAndOpenPhotoDateEditor(tempFilePath);
             }
           });
         }
       }
     })
+  },
+  // 打开日期编辑器（添加植物场景）
+  prepareAndOpenPhotoDateEditor: function(localPathForExif) {
+    const nowTs = Date.now();
+    const fallback = { timestamp: nowTs, dateString: new Date(nowTs).toISOString().split('T')[0] };
+    const proceed = (defaultDate) => {
+      try {
+        wx.navigateTo({
+          url: '/pages/photo-add/photo-add',
+          success: (res) => {
+            const ec = res.eventChannel;
+            try { ec.emit('initData', { filePath: this.data.tempImageLocalPath || this.data.tempImagePath, dateInfo: defaultDate }); } catch (e) {}
+            if (ec && ec.on) {
+              ec.on('onPhotoDateSelected', (payload) => {
+                const info = (payload && payload.dateInfo) || defaultDate;
+                this.setData({ photoDate: info.dateString, photoTimestamp: info.timestamp });
+                if (this._submitAfterDate === true) {
+                  this._submitAfterDate = false;
+                  this.formSubmit();
+                }
+              });
+            }
+          }
+        });
+      } catch (e) {}
+    };
+    try {
+      exifUtils.extractImageDate(localPathForExif).then((d) => proceed(d || fallback)).catch(() => proceed(fallback));
+    } catch (e) {
+      proceed(fallback);
+    }
+  },
+  bindPhotoDateChange: function(e) {
+    const value = e.detail.value;
+    const ts = new Date(value).getTime();
+    this.setData({ photoDate: value, photoTimestamp: ts });
   },
   recognizeImage: function (filePath) {
     this.setData({ isLoading: true });
@@ -327,7 +387,15 @@ Page({
       wx.showToast({ title: this.translate('add', 'recognition.recognizingWait'), icon: 'none' });
       return;
     }
-    
+    // 若未选择或未确认照片日期，先弹出日期编辑器
+    if (!this.data.photoDate || !this.data.photoTimestamp) {
+      this._submitAfterDate = true;
+      const lp = this.data.tempImageLocalPath || this.data.tempImagePath;
+      if (lp) {
+        this.prepareAndOpenPhotoDateEditor(lp);
+        return;
+      }
+    }
     const plantList = wx.getStorageSync('plantList') || [];
     // Enforce system-level plant count limit
     try {
@@ -338,55 +406,60 @@ Page({
         return;
       }
     } catch (e) {}
-    const currentTime = new Date();
-    const newPlant = {
-      id: Date.now(),
-      createTime: currentTime.getTime(),
-      createDate: currentTime.toLocaleDateString(),
-      images: [this.data.tempImagePath],
-      imageInfos: [{
-        path: this.data.tempImagePath,
-        timestamp: currentTime.getTime(),
-        date: new Date(currentTime.getTime()).toISOString().split('T')[0],
-        memo: ''
-      }],
-      lastWateringDate: this.data.wateringDate,
-      lastFertilizingDate: this.data.fertilizingDate,
-      aiResult: this.data.aiResult,
-      wateringHistory: this.data.wateringDate ? [{
-        date: this.data.wateringDate,
-        timestamp: new Date(this.data.wateringDate).getTime()
-      }] : [],
-      fertilizingHistory: this.data.fertilizingDate ? [{
-        date: this.data.fertilizingDate,
-        timestamp: new Date(this.data.fertilizingDate).getTime()
-      }] : []
-    };
-    plantList.unshift(newPlant);
-    wx.setStorageSync('plantList', plantList);
-    console.log('[add] local saved, total count:', plantList.length);
-    // Persist to cloud database once (best-effort, with short timeout)
-    const ensurePersist = new Promise((resolve) => {
-      try {
-        if (backend && backend.savePlantList) {
-          backend.savePlantList(plantList).then(() => resolve()).catch(() => resolve());
-        } else { resolve(); }
-      } catch (e) { resolve(); }
-      // Safety timeout 1s
-      setTimeout(() => resolve(), 1000);
-    });
-    ensurePersist.then(() => {
-      wx.showToast({
-        title: this.translate('add', 'recognition.successModalTitle'),
-        icon: 'success',
-        duration: 800
+
+    const d = (this.data.photoDate && this.data.photoTimestamp)
+      ? { timestamp: this.data.photoTimestamp, dateString: this.data.photoDate }
+      : (function(){ const nowTs = Date.now(); return { timestamp: nowTs, dateString: new Date(nowTs).toISOString().split('T')[0] }; })();
+      const newPlant = {
+        id: Date.now(),
+        createTime: d.timestamp,
+        createDate: new Date(d.timestamp).toLocaleDateString(),
+        images: [this.data.tempImagePath],
+        imageInfos: [{
+          path: this.data.tempImagePath,
+          timestamp: d.timestamp,
+          date: d.dateString,
+          memo: ''
+        }],
+        lastWateringDate: this.data.wateringDate,
+        lastFertilizingDate: this.data.fertilizingDate,
+        aiResult: this.data.aiResult,
+        // 默认未手动调整顺序
+        manualOrder: false,
+        wateringHistory: this.data.wateringDate ? [{
+          date: this.data.wateringDate,
+          timestamp: new Date(this.data.wateringDate).getTime()
+        }] : [],
+        fertilizingHistory: this.data.fertilizingDate ? [{
+          date: this.data.fertilizingDate,
+          timestamp: new Date(this.data.fertilizingDate).getTime()
+        }] : []
+      };
+      plantList.unshift(newPlant);
+      wx.setStorageSync('plantList', plantList);
+      console.log('[add] local saved, total count:', plantList.length);
+      // Persist to cloud database once (best-effort, with short timeout)
+      const ensurePersist = new Promise((resolve) => {
+        try {
+          if (backend && backend.savePlantList) {
+            backend.savePlantList(plantList).then(() => resolve()).catch(() => resolve());
+          } else { resolve(); }
+        } catch (e) { resolve(); }
+        // Safety timeout 1s
+        setTimeout(() => resolve(), 1000);
       });
-      // 标记首页需要刷新
-      try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 800);
-    });
+      ensurePersist.then(() => {
+        wx.showToast({
+          title: this.translate('add', 'recognition.successModalTitle'),
+          icon: 'success',
+          duration: 800
+        });
+        // 标记首页需要刷新
+        try { wx.setStorageSync('shouldRefreshPlantList', true); } catch (e) {}
+        setTimeout(() => {
+          wx.navigateBack();
+        }, 800);
+      });
   },
 
   getModelDisplayName: function(modelId) {
