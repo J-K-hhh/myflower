@@ -28,7 +28,8 @@ Page({
     i18n: i18n.getSection('index'),
     i18nCommon: i18n.getSection('common'),
     language: i18n.getLanguage(),
-    batchSelectionText: i18n.t('index', 'batchMode.selectedCount', { count: 0 })
+    batchSelectionText: i18n.t('index', 'batchMode.selectedCount', { count: 0 }),
+    unreadCount: 0
   },
   onLoad: function () {
     this.updateTranslations();
@@ -36,6 +37,8 @@ Page({
     // 主动加载一次我的植物列表，避免某些跳转路径仅触发onLoad
     this.loadPlantData();
     this.loadFriendShares(true);
+    // 冷启动时也尝试拉取未读计数，保证红点尽早出现
+    try { this.updateUnreadCount(); } catch (e) {}
   },
   onShow: function () {
     // 仅在需要时刷新，减少从详情返回时的全量刷新闪烁
@@ -56,6 +59,9 @@ Page({
           // 即使不刷新数据，也要重新计算提醒状态（语言可能已切换）
           this.calculateReminderStatus(this.data.plantList);
           this.setRandomTitle();
+          // 即使走快速返回分支，也要刷新通知红点与提示
+          try { this.updateUnreadCount(); } catch (e) {}
+          try { this.checkNotifications(); } catch (e) {}
         }
         return;
       }
@@ -77,6 +83,21 @@ Page({
     }
     this.setRandomTitle();
     this.updateNavigationTitle();
+    // 先拉取未读统计，保证红点有保底值
+    this.updateUnreadCount();
+    // 再检查最新未读并进行提示，同时用更大的值更新红点
+    this.checkNotifications();
+    // 兜底：稍后再刷新一次，避免冷启动早期环境/网络抖动
+    try { clearTimeout(this._notifTid); } catch (e) {}
+    this._notifTid = setTimeout(() => this.updateUnreadCount(), 1000);
+    // 启动前台轮询，保证停留在首页时红点持续更新
+    this.startNotificationPolling();
+  },
+  onHide: function() {
+    this.stopNotificationPolling();
+  },
+  onUnload: function() {
+    this.stopNotificationPolling();
   },
   updateTranslations: function() {
     const app = getApp();
@@ -281,6 +302,56 @@ Page({
     this.setData({ plantList: plantList });
     // 计算提醒状态
     this.calculateReminderStatus(plantList);
+  },
+  updateUnreadCount: function() {
+    try {
+      const backend = require('../../utils/backend_service.js');
+      backend.getNotificationStats && backend.getNotificationStats().then(stats => {
+        const n = (stats && typeof stats.unread === 'number') ? stats.unread : 0;
+        this.setData({ unreadCount: n });
+      }).catch(() => this.setData({ unreadCount: 0 }));
+    } catch (e) {}
+  },
+  openNotifications: function() {
+    wx.navigateTo({ url: '/pages/notifications/notifications' });
+  },
+  // 前台轮询：在首页可见时每隔一段时间刷新未读数量
+  startNotificationPolling: function() {
+    try { this.stopNotificationPolling(); } catch (e) {}
+    // 轮询间隔（秒）可按需调整：15~30s 较合适
+    const intervalMs = 20000;
+    this._notifPoll = setInterval(() => {
+      this.updateUnreadCount();
+    }, intervalMs);
+  },
+  stopNotificationPolling: function() {
+    if (this._notifPoll) {
+      clearInterval(this._notifPoll);
+      this._notifPoll = null;
+    }
+  },
+  // 检查来自朋友的互动通知（如点赞）
+  checkNotifications: function() {
+    try {
+      const backend = require('../../utils/backend_service.js');
+      backend.listNotifications({ status: 'unread', limit: 20 }).then(items => {
+        const list = Array.isArray(items) ? items : [];
+        if (list.length > 0) {
+          const first = list[0];
+          const name = (first && (first.actorNickname || '朋友'));
+          const count = list.length;
+          const anyComment = list.some(i => i && i.type === 'comment');
+          const verb = anyComment ? '有新的评论' : '赞了你的图片';
+          const msg = count === 1 ? `${name} ${verb}` : `${name} 等 ${count} 人有新的互动`;
+          wx.showToast({ title: msg, icon: 'none' });
+          // 立即在本地更新未读红点，取更大值，避免随后 stats(延迟)覆盖为更小值
+          const current = Number(this.data.unreadCount || 0);
+          const next = Math.max(current, count);
+          this.setData({ unreadCount: next });
+          // 不自动标记已读，保留给通知中心处理
+        }
+      }).catch(() => {});
+    } catch (e) {}
   },
   // 进入排序模式（长按卡片）
   enterReorderMode: function() {

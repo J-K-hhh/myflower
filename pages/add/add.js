@@ -25,7 +25,7 @@ Page({
     this.updateTranslations();
     this.loadSettings();
     this.checkLocationPermission();
-    this.testApiConnection();
+    // 移除自动API测试，避免无意义弹窗
   },
 
   onShow: function() {
@@ -96,9 +96,31 @@ Page({
     
     wx.showLoading({ title: this.translate('add', 'apiTest.testing') });
     
-    // 使用新的模型配置检查
+    // Baidu 改为云函数代理；其它模型仍按原逻辑
+    const model = this.data.selectedModel;
+    if (model === 'baidu') {
+      try {
+        wx.cloud.callFunction({ name: 'baidu-ai-proxy', data: { action: 'token' } })
+          .then(r => {
+            wx.hideLoading();
+            if (r && r.result && r.result.ok) {
+              wx.showToast({ title: this.translate('add', 'apiTest.successTitle'), icon: 'success' });
+            } else {
+              wx.showModal({ title: this.translate('add', 'apiTest.failedTitle') || '连接失败', content: (r && r.result && r.result.error) || 'unknown', showCancel: false });
+            }
+          })
+          .catch(err => {
+            wx.hideLoading();
+            wx.showModal({ title: this.translate('add', 'apiTest.failedTitle') || '连接失败', content: err.message || 'unknown', showCancel: false });
+          });
+      } catch (e) {
+        wx.hideLoading();
+        wx.showModal({ title: this.translate('add', 'apiTest.failedTitle') || '连接失败', content: e.message || 'unknown', showCancel: false });
+      }
+      return;
+    }
+    // 非百度模型：保留原检查逻辑
     const modelConfig = modelUtils.getModelConfig(this.data.selectedModel);
-    
     if (!modelConfig.apiKey) {
       wx.hideLoading();
       wx.showModal({
@@ -109,15 +131,9 @@ Page({
       });
       return;
     }
-    
-    // 模拟API测试（实际测试需要真实请求）
     setTimeout(() => {
       wx.hideLoading();
-      wx.showToast({
-        title: this.translate('add', 'apiTest.successTitle'),
-        icon: 'success',
-        duration: 2000
-      });
+      wx.showToast({ title: this.translate('add', 'apiTest.successTitle'), icon: 'success', duration: 2000 });
       console.log('模型配置检查通过:', modelConfig.name);
     }, 1000);
   },
@@ -132,16 +148,7 @@ Page({
       camera: 'back',
       success: (res) => {
         const tempFilePath = res.tempFiles[0].tempFilePath;
-        // 调试弹窗：读取EXIF日期
-        try {
-          exifUtils.extractImageDateWithDebug(tempFilePath).then((dbg) => {
-            const title = '照片日期调试';
-            const content = dbg && dbg.success
-              ? `成功读取日期\n时间戳: ${dbg.data.timestamp}\n日期: ${dbg.data.dateString}`
-              : `未能读取日期\n原因: ${dbg ? dbg.reason : 'unknown'}\n详情: ${dbg ? dbg.details : ''}`;
-            wx.showModal({ title, content, showCancel: false, confirmText: this.translate('common', 'ok') });
-          }).catch(() => {});
-        } catch (e) {}
+        // 去除EXIF调试弹窗
         // Upload to cloud when available; fallback to local saveFile
         if (backend.isAvailable()) {
           console.log('[add] cloud available, uploading image');
@@ -154,8 +161,8 @@ Page({
                 tempImageLocalPath: tempFilePath,
                 aiResult: {}
               });
-              // For recognition, still need a real file path; use tempFilePath
-              this.recognizeImage(tempFilePath);
+              // 识别优先使用云文件ID，避免上传Base64超限
+              this.recognizeImage(fileID);
               // 设置默认照片日期并弹出编辑窗口
               this.prepareAndOpenPhotoDateEditor(tempFilePath);
             })
@@ -248,115 +255,25 @@ Page({
   },
   recognizeImage: function (filePath) {
     this.setData({ isLoading: true });
-    
     const location = this.data.locationEnabled ? this.data.currentLocation : null;
-    const currentModel = modelUtils.getCurrentModel();
-    console.log('当前选择的模型:', currentModel);
-    console.log('页面数据中的模型:', this.data.selectedModel);
-    
-    // 分状态显示识别进度
-    this.showRecognitionProgress(this.translate('add', 'recognition.preparingImage'));
-    
-    // 延迟一下让用户看到状态变化
-    setTimeout(() => {
-      this.showRecognitionProgress(this.translate('add', 'recognition.connectingModel'));
-      
-      setTimeout(() => {
-        this.showRecognitionProgress(this.translate('add', 'recognition.analyzing'));
-        
-        modelUtils.recognizePlant(filePath, location, (message) => {
-          console.log('进度更新:', message);
-          this.showRecognitionProgress(message);
-        })
-        .then(res => {
-          console.log('=== 识别成功 ===');
-          console.log('识别结果:', res);
-          console.log('结果类型:', typeof res);
-          console.log('结果键:', Object.keys(res || {}));
-          
-          this.showRecognitionProgress(this.translate('add', 'recognition.processing'));
-          
-          setTimeout(() => {
-            console.log('=== 更新页面状态 ===');
-            this.setData({
-              aiResult: res,
-              isLoading: false
-            });
-            wx.hideLoading();
-            console.log('页面状态更新完成');
-          }, 500);
-        })
-        .catch(err => {
-          console.log('识别失败:', err);
-          this.setData({ isLoading: false });
-          wx.hideLoading();
-          
-          // 识别失败时提供选择
-          const errorDetails = [
-            `${this.translate('add', 'recognition.errorLabels.model')}: ${currentModel}`,
-            `${this.translate('add', 'recognition.errorLabels.message')}: ${err.message || this.translate('add', 'recognition.errorPlaceholder')}`,
-            `${this.translate('add', 'recognition.errorLabels.type')}: ${err.name || 'Error'}`,
-            `${this.translate('add', 'recognition.errorLabels.full')}: ${JSON.stringify(err, null, 2)}`
-          ].join('\n');
-          
-          console.log('详细错误信息:', errorDetails);
-          
-          wx.showModal({
-            title: this.translate('add', 'recognition.failedTitle'),
-            content: this.translate('add', 'recognition.failedContent', { error: err.message || this.translate('add', 'recognition.errorPlaceholder') }),
-            confirmText: this.translate('common', 'continueAdding'),
-            cancelText: this.translate('common', 'viewDetails'),
-            success: (res) => {
-              if (res.confirm) {
-                // 用户选择继续添加，设置默认的AI结果
-                this.setData({
-                  aiResult: {
-                    name: this.translate('common', 'unknownPlant'),
-                    model: currentModel,
-                    error: err.message || this.translate('add', 'recognition.failedTitle')
-                  }
-                });
-                wx.showToast({
-                  title: this.translate('add', 'recognition.continueAddingTitle'),
-                  icon: 'success'
-                });
-              } else {
-                // 用户选择查看详情，显示完整错误信息
-                wx.showModal({
-                  title: this.translate('add', 'recognition.fullErrorTitle'),
-                  content: errorDetails,
-                  showCancel: true,
-                  cancelText: this.translate('common', 'retry'),
-                  confirmText: this.translate('common', 'continueAdding'),
-                  success: (detailRes) => {
-                    if (detailRes.confirm) {
-                      // 继续添加
-                      this.setData({
-                        aiResult: {
-                          name: this.translate('common', 'unknownPlant'),
-                          model: currentModel,
-                          error: err.message || this.translate('add', 'recognition.failedTitle')
-                        }
-                      });
-                      wx.showToast({
-                        title: this.translate('add', 'recognition.continueAddingTitle'),
-                        icon: 'success'
-                      });
-                    } else {
-                      // 重新识别，清空图片
-                      this.setData({
-                        tempImagePath: '',
-                        aiResult: {}
-                      });
-                    }
-                  }
-                });
-              }
-            }
-          });
-        });
-      }, 1000);
-    }, 1000);
+    this.showRecognitionProgress(this.translate('add', 'recognition.analyzing'));
+    modelUtils.recognizePlant(filePath, location, (message) => {
+      if (message) this.showRecognitionProgress(message);
+    })
+    .then(res => {
+      this.setData({ aiResult: res, isLoading: false });
+      wx.hideLoading();
+    })
+    .catch(err => {
+      this.setData({ isLoading: false });
+      wx.hideLoading();
+      wx.showModal({
+        title: this.translate('add', 'recognition.failedTitle'),
+        content: this.translate('add', 'recognition.failedContent', { error: err.message || this.translate('add', 'recognition.errorPlaceholder') }),
+        showCancel: false,
+        confirmText: this.translate('common', 'ok')
+      });
+    });
   },
 
   // 显示识别进度

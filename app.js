@@ -32,6 +32,7 @@ App({
           const { result } = await wx.cloud.callFunction({ name: 'login' });
           this.openid = result.openid;
           console.log('[app] openid:', this.openid);
+          try { wx.setStorageSync('openid', this.openid); } catch (e) {}
           return this.openid;
         } catch (e) {
           console.error('[app] login failed:', e);

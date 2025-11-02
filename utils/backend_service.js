@@ -16,13 +16,17 @@ const tencentAdapter = (() => {
     loadPlantList: cloud.loadPlantList,
     deleteFiles: cloud.deleteCloudFiles,
     loadSharedPlantByOwner: cloud.loadSharedPlantByOwner,
+    loadSharedPlantById: cloud.loadSharedPlantById,
     saveShareComment: cloud.saveShareComment,
     listShareComments: cloud.listShareComments,
     saveShareLike: cloud.saveShareLike,
     listShareLikes: cloud.listShareLikes,
     getUserProfile: cloud.getUserProfile,
     saveUserProfile: cloud.saveUserProfile,
-    updateUserProfile: cloud.updateUserProfile
+    updateUserProfile: cloud.updateUserProfile,
+    listNotifications: cloud.listNotifications,
+    markAllNotificationsRead: cloud.markAllNotificationsRead,
+    getNotificationStats: cloud.getNotificationStats
   };
 })();
 
@@ -36,6 +40,7 @@ const localAdapter = (() => {
   function loadPlantList() { try { return Promise.resolve(wx.getStorageSync('plantList') || []); } catch (e) { return Promise.resolve([]); } }
   function deleteFiles(fileIds) { return Promise.resolve({ deleted: 0, failed: [] }); }
   function loadSharedPlantByOwner() { return Promise.resolve(null); }
+  function loadSharedPlantById() { return Promise.resolve(null); }
   function saveShareComment() { return Promise.resolve({ ok: false }); }
   function listShareComments() { return Promise.resolve([]); }
   function saveShareLike() { return Promise.resolve({ ok: false }); }
@@ -43,13 +48,18 @@ const localAdapter = (() => {
   function getUserProfile() { return Promise.resolve(null); }
   function saveUserProfile() { return Promise.resolve(false); }
   function updateUserProfile() { return Promise.resolve(false); }
+  function listNotifications() { return Promise.resolve([]); }
+  function markAllNotificationsRead() { return Promise.resolve(false); }
+  function getNotificationStats() { return Promise.resolve({ unread: 0 }); }
   return {
     type: 'local',
     isAvailable, init, uploadImage, getTempUrlsCached,
     savePlantList, loadPlantList, deleteFiles,
-    loadSharedPlantByOwner, saveShareComment, listShareComments,
+    loadSharedPlantByOwner, loadSharedPlantById, saveShareComment, listShareComments,
     saveShareLike, listShareLikes,
-    getUserProfile, saveUserProfile, updateUserProfile
+    getUserProfile, saveUserProfile, updateUserProfile,
+    listNotifications, markAllNotificationsRead,
+    getNotificationStats
   };
 })();
 
@@ -70,6 +80,7 @@ const httpAdapter = (() => {
   function loadPlantList() { return Promise.resolve([]); }
   function deleteFiles() { return Promise.resolve({ deleted: 0, failed: [] }); }
   function loadSharedPlantByOwner() { return Promise.resolve(null); }
+  function loadSharedPlantById() { return Promise.resolve(null); }
   function saveShareComment() { return Promise.resolve({ ok: false }); }
   function listShareComments() { return Promise.resolve([]); }
   function saveShareLike() { return Promise.resolve({ ok: false }); }
@@ -77,13 +88,18 @@ const httpAdapter = (() => {
   function getUserProfile() { return Promise.resolve(null); }
   function saveUserProfile() { return Promise.resolve(false); }
   function updateUserProfile() { return Promise.resolve(false); }
+  function listNotifications() { return Promise.resolve([]); }
+  function markAllNotificationsRead() { return Promise.resolve(false); }
+  function getNotificationStats() { return Promise.resolve({ unread: 0 }); }
   return {
     type: 'custom-http',
     isAvailable, init, uploadImage, getTempUrlsCached,
     savePlantList, loadPlantList, deleteFiles,
-    loadSharedPlantByOwner, saveShareComment, listShareComments,
+    loadSharedPlantByOwner, loadSharedPlantById, saveShareComment, listShareComments,
     saveShareLike, listShareLikes,
-    getUserProfile, saveUserProfile, updateUserProfile
+    getUserProfile, saveUserProfile, updateUserProfile,
+    listNotifications, markAllNotificationsRead,
+    getNotificationStats
   };
 })();
 
@@ -107,11 +123,15 @@ module.exports = {
   loadPlantList: (...args) => getAdapter().loadPlantList(...args),
   deleteFiles: (...args) => getAdapter().deleteFiles(...args),
   loadSharedPlantByOwner: (...args) => getAdapter().loadSharedPlantByOwner(...args),
+  loadSharedPlantById: (...args) => getAdapter().loadSharedPlantById(...args),
   saveShareComment: (...args) => getAdapter().saveShareComment(...args),
   listShareComments: (...args) => getAdapter().listShareComments(...args),
   saveShareLike: (...args) => getAdapter().saveShareLike(...args),
   listShareLikes: (...args) => getAdapter().listShareLikes(...args),
   getUserProfile: (...args) => getAdapter().getUserProfile(...args),
   saveUserProfile: (...args) => getAdapter().saveUserProfile(...args),
-  updateUserProfile: (...args) => getAdapter().updateUserProfile(...args)
+  updateUserProfile: (...args) => getAdapter().updateUserProfile(...args),
+  listNotifications: (...args) => getAdapter().listNotifications(...args),
+  markAllNotificationsRead: (...args) => getAdapter().markAllNotificationsRead(...args),
+  getNotificationStats: (...args) => getAdapter().getNotificationStats(...args)
 };

@@ -532,7 +532,8 @@
 }
 
 .top-actions .settings-button,
-.top-actions .friends-button {
+.top-actions .friends-button,
+.top-actions .notifications-button {
   position: static;
   width: 96rpx;
   height: 96rpx;
@@ -547,15 +548,33 @@
   border: 1rpx solid rgba(255, 255, 255, 0.6);
 }
 
+/* 让红点相对于通知按钮定位 */
+.top-actions .notifications-button { position: relative; }
+
 .top-actions .settings-button:active,
-.top-actions .friends-button:active {
+.top-actions .friends-button:active,
+.top-actions .notifications-button:active {
   transform: scale(0.9);
   background: rgba(255, 255, 255, 1);
 }
 
-.settings-icon, .friends-icon {
+.settings-icon, .friends-icon, .notifications-icon {
   font-size: 42rpx;
   filter: drop-shadow(0 1rpx 2rpx rgba(0, 0, 0, 0.1));
+}
+
+.notif-dot {
+  position: absolute;
+  top: -6rpx;
+  right: -6rpx;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 20rpx;
+  padding: 2rpx 6rpx;
+  font-size: 20rpx;
+  min-width: 28rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 6rpx rgba(231, 76, 60, 0.4);
 }
 
 /* V0.3 批量操作样式 */

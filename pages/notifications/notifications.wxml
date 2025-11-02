@@ -1,0 +1,32 @@
+<view class="container">
+  <view class="header">
+    <view class="tabs">
+      <text class="tab {{tab==='unread'?'active':''}}" data-tab="unread" bindtap="switchTab">未读</text>
+      <text class="tab {{tab==='all'?'active':''}}" data-tab="all" bindtap="switchTab">全部</text>
+    </view>
+    <button class="mark-btn" size="mini" bindtap="markAllRead" wx:if="{{tab==='unread' && items.length>0}}">标记全部已读</button>
+  </view>
+
+  <view class="list">
+    <block wx:for="{{items}}" wx:key="_id">
+      <view class="item" data-id="{{item._id}}" bindtap="openItem">
+        <view class="line1">
+          <text class="type">{{ item.type==='like' ? '赞' : (item.type==='comment' ? '评论' : '通知') }}</text>
+          <text class="time">{{item.timeText}}</text>
+        </view>
+        <view class="line2">
+          <text class="actor">{{item.actorNickname || '朋友'}}</text>
+          <text class="content">{{ item.type==='comment' ? ('：'+(item.content||'')) : '' }}</text>
+        </view>
+        <view class="line3" wx:if="{{item.plantName}}">
+          <text class="plant">🌿 {{item.plantName}}</text>
+        </view>
+      </view>
+    </block>
+    <view class="empty" wx:if="{{items.length===0}}">暂无通知</view>
+  </view>
+
+  <view class="footer" wx:if="{{hasMore}}">
+    <button size="mini" bindtap="loadMore">加载更多</button>
+  </view>
+</view>

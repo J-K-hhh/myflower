@@ -1,7 +1,4 @@
-let API_KEY = '';
-let SECRET_KEY = '';
 const i18n = require('./i18n.js');
-const systemConfig = require('./system_config.js');
 
 function translate(namespace, keyPath, params = {}) {
   try {
@@ -13,98 +10,90 @@ function translate(namespace, keyPath, params = {}) {
   return i18n.t(namespace, keyPath, params);
 }
 
-function getConfig() {
-  try {
-    const ai = systemConfig.getAi();
-    const cfg = ai && ai.models && ai.models['baidu'];
-    if (cfg) {
-      API_KEY = cfg.apiKey || API_KEY;
-      SECRET_KEY = cfg.secretKey || SECRET_KEY;
-    }
-  } catch (e) {}
-}
-
-function getAccessToken() {
-  return new Promise((resolve, reject) => {
-    getConfig();
-    // no reliable global cache here across sessions; rely on short-lived calls
-    const tokenUrl = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${API_KEY}&client_secret=${SECRET_KEY}`;
-    wx.request({
-      url: tokenUrl,
-      method: 'POST',
-      header: { 'content-type': 'application/json' },
-      success: (res) => {
-        if (res.statusCode === 200 && res.data && res.data.access_token) {
-          app.globalData.baiduAi.accessToken = res.data.access_token;
-          resolve(res.data.access_token);
-        } else {
-          const unknown = translate('models', 'errors.unknown');
-          const errorMsg = res.data ? (res.data.error_description || res.data.error || unknown) : translate('models', 'errors.responseEmpty');
-          reject(new Error(translate('models', 'errors.accessTokenFailed', { message: errorMsg })));
-        }
-      },
-      fail: (err) => {
-        if (err.errMsg && err.errMsg.includes('域名不在白名单')) {
-          reject(new Error(translate('models', 'errors.whitelistRequired')));
-        } else {
-          reject(new Error(translate('models', 'errors.networkFailed', { message: err.errMsg || translate('models', 'errors.unknown') })));
-        }
-      }
-    });
-  });
-}
-
 function recognizePlant(filePath) {
-  return new Promise((resolve, reject) => {
-    getAccessToken().then(accessToken => {
-      const fileSystemManager = wx.getFileSystemManager();
-      fileSystemManager.readFile({
-        filePath: filePath,
-        encoding: 'base64',
-        success: (res) => {
-          const imageBase64 = res.data;
-          const plantUrl = `https://aip.baidubce.com/rest/2.0/image-classify/v1/plant?access_token=${accessToken}`;
-          wx.request({
-            url: plantUrl,
-            method: 'POST',
-            header: { 'content-type': 'application/x-www-form-urlencoded' },
-            data: { image: imageBase64, baike_num: 1 },
-            success: (apiRes) => {
-              if (apiRes.statusCode === 200) {
-                if (apiRes.data && apiRes.data.result && apiRes.data.result.length > 0) {
-                  const result = apiRes.data.result[0];
-                  const plantInfo = {
-                    name: result.name,
-                    score: result.score,
-                    baike: result.baike_info || {},
-                    careTips: extractCareTips(result.baike_info || {})
-                  };
-                  resolve(plantInfo);
-                } else {
-                  reject(new Error(translate('models', 'errors.baiduRecognitionFailed')));
-                }
-              } else {
-                const unknown = translate('models', 'errors.unknown');
-                const errorMsg = apiRes.data ? (apiRes.data.error_msg || apiRes.data.error || unknown) : translate('models', 'errors.responseEmpty');
-                reject(new Error(`${translate('models', 'errors.baiduRecognitionFailed')} (${errorMsg})`));
-              }
-            },
-            fail: (apiErr) => {
-              if (apiErr.errMsg && apiErr.errMsg.includes('域名不在白名单')) {
-                reject(new Error(translate('models', 'errors.whitelistRequired')));
-              } else {
-                reject(new Error(translate('models', 'errors.networkFailed', { message: apiErr.errMsg || translate('models', 'errors.unknown') })));
-              }
-            }
-          });
-        },
-        fail: (fsErr) => {
-          reject(new Error(translate('models', 'errors.imageReadFailed', { message: fsErr.errMsg || translate('models', 'errors.unknown') })));
-        }
-      });
-    }).catch(tokenErr => {
-      reject(tokenErr);
+  // 压缩并限制Base64大小，避免云函数参数及百度接口限额
+  const LIMIT_BYTES = 900000; // ~0.9MB payload for safety
+  const QUALITIES = [80, 60, 40, 30, 20];
+  function readAsBase64(fp) {
+    return new Promise((resolve, reject) => {
+      try {
+        const fsm = wx.getFileSystemManager();
+        fsm.readFile({ filePath: fp, encoding: 'base64', success: r => resolve(r.data), fail: reject });
+      } catch (e) { reject(e); }
     });
+  }
+  function compressOnce(fp, quality) {
+    return new Promise((resolve, reject) => {
+      try {
+        wx.compressImage({ src: fp, quality: quality, success: res => resolve(res.tempFilePath), fail: reject });
+      } catch (e) { reject(e); }
+    });
+  }
+  async function compressToLimit(fp) {
+    // 尝试逐步压缩直到Base64小于限制
+    let current = fp;
+    let base64 = await readAsBase64(current);
+    if (base64 && base64.length * 0.75 < LIMIT_BYTES) return base64;
+    for (const q of QUALITIES) {
+      current = await compressOnce(current, q);
+      base64 = await readAsBase64(current);
+      if (base64 && base64.length * 0.75 < LIMIT_BYTES) return base64;
+    }
+    // 最终仍超限，截断警告：再尝试最后一次强压
+    return base64;
+  }
+
+  return new Promise((resolve, reject) => {
+    // 若传入的是云文件ID，直接让云函数下载并识别，避免上传Base64占用参数体积
+    try {
+      if (typeof filePath === 'string' && filePath.indexOf('cloud://') === 0) {
+        wx.cloud.callFunction({ name: 'baidu-ai-proxy', data: { action: 'recognizeByFileID', fileID: filePath, baike_num: 1 } })
+          .then(cfRes => {
+            const r = cfRes && cfRes.result;
+            if (r && r.ok && Array.isArray(r.result) && r.result.length > 0) {
+              const first = r.result[0];
+              const plantInfo = { name: first.name, score: first.score, baike: first.baike_info || {}, careTips: extractCareTips(first.baike_info || {}) };
+              resolve(plantInfo);
+            } else {
+              const rawErr = (r && r.error) ? String(r.error) : '';
+              if (/exceed|too\s*large|data\s*size/i.test(rawErr)) {
+                reject(new Error(translate('models', 'errors.networkFailed', { message: '图片过大，请选择清晰但体积更小的照片（建议小于1MB）' })));
+                return;
+              }
+              reject(new Error(rawErr || translate('models', 'errors.baiduRecognitionFailed')));
+            }
+          })
+          .catch(err => reject(new Error(translate('models', 'errors.networkFailed', { message: err.errMsg || err.message || translate('models', 'errors.unknown') }))));
+        return;
+      }
+    } catch (e) { /* ignore and fallback */ }
+    compressToLimit(filePath)
+      .then((imageBase64) => {
+        // 调用云函数
+        wx.cloud.callFunction({ name: 'baidu-ai-proxy', data: { action: 'recognize', imageBase64, baike_num: 1 } })
+          .then(cfRes => {
+            const r = cfRes && cfRes.result;
+            if (r && r.ok && Array.isArray(r.result) && r.result.length > 0) {
+              const first = r.result[0];
+              const plantInfo = { name: first.name, score: first.score, baike: first.baike_info || {}, careTips: extractCareTips(first.baike_info || {}) };
+              resolve(plantInfo);
+            } else {
+              const rawErr = (r && r.error) ? String(r.error) : '';
+              // 友好化“数据过大”提示
+              if (/exceed|too\s*large|data\s*size/i.test(rawErr)) {
+                reject(new Error(translate('models', 'errors.networkFailed', { message: '图片过大，请选择清晰但体积更小的照片（建议小于1MB）' })));
+                return;
+              }
+              reject(new Error(rawErr || translate('models', 'errors.baiduRecognitionFailed')));
+            }
+          })
+          .catch(err => {
+            reject(new Error(translate('models', 'errors.networkFailed', { message: err.errMsg || err.message || translate('models', 'errors.unknown') })));
+          });
+      })
+      .catch((fsErr) => {
+        reject(new Error(translate('models', 'errors.imageReadFailed', { message: fsErr.errMsg || translate('models', 'errors.unknown') })));
+      });
   });
 }
 
@@ -196,18 +185,17 @@ function extractFertilizingInfo(description) {
 
 function testApiConnection() {
   return new Promise((resolve, reject) => {
-    getConfig();
-    if (!API_KEY || !SECRET_KEY) {
-      reject(new Error(translate('models', 'errors.apiKeyMisconfigured')));
-      return;
+    // Cloud-side token test
+    try {
+      wx.cloud.callFunction({ name: 'baidu-ai-proxy', data: { action: 'token' } })
+        .then(r => {
+          if (r && r.result && r.result.ok) resolve(true);
+          else reject(new Error('token_failed'));
+        })
+        .catch(err => reject(err));
+    } catch (e) {
+      reject(e);
     }
-    getAccessToken()
-      .then(token => {
-        resolve(true);
-      })
-      .catch(err => {
-        reject(err);
-      });
   });
 }
 

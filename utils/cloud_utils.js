@@ -390,32 +390,47 @@ function loadSharedPlantByOwner(ownerOpenId, plantId, shareNickname = null) {
       name: 'getSharedPlant',
       data: { ownerOpenId, plantId, shareNickname }
     }).then(res => {
-      const result = (res && res.result) || {};
-      resolve(result); // 直接返回（云端已尽力把图片转成URL）
-    }).catch(() => resolve(null));
+      resolve((res && res.result) || { ok: false, error: 'empty_result' });
+    }).catch(err => {
+      resolve({ ok: false, error: 'cf_call_failed', errMsg: (err && (err.errMsg || err.message)) || 'unknown' });
+    });
+  });
+}
+
+// Resolve shared plant by plantId only (when owner is missing, e.g., some timeline shares)
+function loadSharedPlantById(plantId, shareNickname = null) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve(null); return; }
+    wx.cloud.callFunction({
+      name: 'getSharedPlant',
+      data: { plantId, shareNickname }
+    }).then(res => {
+      resolve((res && res.result) || { ok: false, error: 'empty_result' });
+    }).catch(err => resolve({ ok: false, error: 'cf_call_failed', errMsg: (err && (err.errMsg || err.message)) || 'unknown' }));
   });
 }
 
 module.exports.loadSharedPlantByOwner = loadSharedPlantByOwner;
+module.exports.loadSharedPlantById = loadSharedPlantById;
 
 // Share comments (cloud persistence)
-function saveShareComment(ownerOpenId, plantId, imagePath, nickname, content) {
+function saveShareComment(ownerOpenId, plantId, imagePath, nickname, content, imageIndex = null, commenterOpenId = null) {
   return new Promise((resolve) => {
     if (!initCloud()) { resolve({ ok: false, error: 'cloud_unavailable' }); return; }
     wx.cloud.callFunction({
       name: 'shareComments',
-      data: { action: 'add', ownerOpenId, plantId, imagePath, nickname, content }
+      data: { action: 'add', ownerOpenId, plantId, imagePath, nickname, content, imageIndex, commenterOpenId }
     }).then(res => resolve(res && res.result ? res.result : { ok: true }))
       .catch(() => resolve({ ok: false }));
   });
 }
 
-function listShareComments(ownerOpenId, plantId, imagePath, limit = 50) {
+function listShareComments(ownerOpenId, plantId, imagePath, limit = 50, imageIndex = null) {
   return new Promise((resolve) => {
     if (!initCloud()) { resolve([]); return; }
     wx.cloud.callFunction({
       name: 'shareComments',
-      data: { action: 'list', ownerOpenId, plantId, imagePath, limit }
+      data: { action: 'list', ownerOpenId, plantId, imagePath, limit, imageIndex }
     }).then(res => resolve((res && res.result && Array.isArray(res.result.items)) ? res.result.items : []))
       .catch(() => resolve([]));
   });
@@ -425,23 +440,23 @@ module.exports.saveShareComment = saveShareComment;
 module.exports.listShareComments = listShareComments;
 
 // Share likes (cloud persistence)
-function saveShareLike(ownerOpenId, plantId, imagePath, likerOpenId, nickname) {
+function saveShareLike(ownerOpenId, plantId, imagePath, likerOpenId, nickname, imageIndex = null) {
   return new Promise((resolve) => {
     if (!initCloud()) { resolve({ ok: false, error: 'cloud_unavailable' }); return; }
     wx.cloud.callFunction({
       name: 'shareLikes',
-      data: { action: 'add', ownerOpenId, plantId, imagePath, likerOpenId, nickname }
+      data: { action: 'add', ownerOpenId, plantId, imagePath, likerOpenId, nickname, imageIndex }
     }).then(res => resolve(res && res.result ? res.result : { ok: true }))
       .catch(() => resolve({ ok: false }));
   });
 }
 
-function listShareLikes(ownerOpenId, plantId, imagePath, limit = 200) {
+function listShareLikes(ownerOpenId, plantId, imagePath, limit = 200, imageIndex = null) {
   return new Promise((resolve) => {
     if (!initCloud()) { resolve({ items: [], count: 0 }); return; }
     wx.cloud.callFunction({
       name: 'shareLikes',
-      data: { action: 'list', ownerOpenId, plantId, imagePath, limit }
+      data: { action: 'list', ownerOpenId, plantId, imagePath, limit, imageIndex }
     }).then(res => resolve((res && res.result) ? res.result : { items: [], count: 0 }))
       .catch(() => resolve({ items: [], count: 0 }));
   });
@@ -551,3 +566,35 @@ function updateUserProfile(nickname, avatarUrl = null) {
 module.exports.getUserProfile = getUserProfile;
 module.exports.saveUserProfile = saveUserProfile;
 module.exports.updateUserProfile = updateUserProfile;
+
+// Notifications: list unread for current user and mark as read
+function listNotifications({ limit = 20, offset = 0, status = 'unread' } = {}) {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve([]); return; }
+    wx.cloud.callFunction({ name: 'notifications', data: { action: 'list', limit, offset, status } })
+      .then(res => resolve((res && res.result && res.result.items) || []))
+      .catch(() => resolve([]));
+  });
+}
+
+function markAllNotificationsRead() {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve(false); return; }
+    wx.cloud.callFunction({ name: 'notifications', data: { action: 'markAllRead' } })
+      .then(res => resolve(!!(res && res.result && res.result.ok)))
+      .catch(() => resolve(false));
+  });
+}
+
+function getNotificationStats() {
+  return new Promise((resolve) => {
+    if (!initCloud()) { resolve({ unread: 0 }); return; }
+    wx.cloud.callFunction({ name: 'notifications', data: { action: 'stats' } })
+      .then(res => resolve((res && res.result) ? res.result : { unread: 0 }))
+      .catch(() => resolve({ unread: 0 }));
+  });
+}
+
+module.exports.listNotifications = listNotifications;
+module.exports.markAllNotificationsRead = markAllNotificationsRead;
+module.exports.getNotificationStats = getNotificationStats;

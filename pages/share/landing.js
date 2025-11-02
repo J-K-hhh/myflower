@@ -52,6 +52,18 @@ Page({
       setTimeout(() => wx.navigateBack(), 1200);
     }
     wx.showShareMenu({ withShareTicket: true, menus: ['shareAppMessage', 'shareTimeline'] });
+    // 确保加载访问者用户资料（用于点赞/评论昵称）
+    try {
+      const app = getApp();
+      const backend = require('../../utils/backend_service.js');
+      if (!app.globalData.userProfile && backend && backend.getUserProfile) {
+        backend.getUserProfile().then(profile => {
+          if (profile && typeof app.updateUserProfile === 'function') {
+            app.updateUserProfile(profile);
+          }
+        }).catch(() => {});
+      }
+    } catch (e) {}
   },
   translate(ns, key, params = {}) {
     const app = getApp();
@@ -99,12 +111,12 @@ Page({
       this.updateCurrentContext(0);
       const key = shareUtils.shareKey(owner, pid);
       const firstPath = (gallery && gallery[0]) || '';
-      backend.listShareLikes(owner, pid, firstPath, 200).then(r => {
+      backend.listShareLikes(owner, pid, firstPath, 200, 0).then(r => {
         if (r && typeof r.count === 'number') this.setData({ likeCount: r.count });
       });
       const followInfo = shareUtils.getFollow(key);
-      // 优先从云端读取评论
-      backend.listShareComments(owner, pid, firstPath, 50).then(items => {
+      // 优先从云端读取评论（按图片索引）
+      backend.listShareComments(owner, pid, firstPath, 50, 0).then(items => {
         const list = (items || []).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
         const localFallback = shareUtils.getCommentsByImage(key, firstPath).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
         const comments = list.length > 0 ? list : localFallback;
@@ -126,7 +138,7 @@ Page({
     const img = (this.data.galleryImages || [])[this.data.currentIndex] || '';
     const app = getApp();
     const likerOpenId = (app && app.openid) ? app.openid : '';
-    const nickname = (app && app.globalData && app.globalData.userProfile && app.globalData.userProfile.nickname) || '';
+    let nickname = (app && app.globalData && app.globalData.userProfile && app.globalData.userProfile.nickname) || '';
     // 本地加1（即时反馈）
     const key = shareUtils.shareKey(owner, pid);
     const localCount = shareUtils.addLikeByImage(key, img);
@@ -140,8 +152,8 @@ Page({
     });
     ensureOpenId.then(oid => {
       if (!oid) return; // 无法存储点赞人
-      backend.saveShareLike(owner, pid, img, oid, nickname).then(() => {
-        backend.listShareLikes(owner, pid, img, 200).then(r => {
+      backend.saveShareLike(owner, pid, img, oid, nickname, this.data.currentIndex).then(() => {
+        backend.listShareLikes(owner, pid, img, 200, this.data.currentIndex).then(r => {
           if (r && typeof r.count === 'number') this.setData({ likeCount: r.count });
         });
       });
@@ -153,7 +165,7 @@ Page({
     const key = shareUtils.shareKey(this.data.owner, this.data.pid);
     const img = (this.data.galleryImages || [])[idx] || '';
     // 云端评论优先，失败则本地
-    backend.listShareComments(this.data.owner, this.data.pid, img, 50).then(items => {
+    backend.listShareComments(this.data.owner, this.data.pid, img, 50, idx).then(items => {
       const list = (items || []).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
       const localFallback = shareUtils.getCommentsByImage(key, img).map(c => ({ ...c, timeText: shareUtils.timeAgo(c.time) }));
       const comments = list.length > 0 ? list : localFallback;
@@ -161,7 +173,7 @@ Page({
       this.setData({ comments, commentsToShow });
     });
     const h = (this.data.galleryHeights || [])[idx] || this.data.currentHeight || 420;
-    backend.listShareLikes(this.data.owner, this.data.pid, img, 200).then(r => {
+    backend.listShareLikes(this.data.owner, this.data.pid, img, 200, idx).then(r => {
       if (r && typeof r.count === 'number') this.setData({ likeCount: r.count });
     });
     this.setData({ currentIndex: idx, currentHeight: h });
@@ -220,13 +232,20 @@ Page({
     // 轻登录提示：M1 仅本地
     const key = shareUtils.shareKey(this.data.owner, this.data.pid);
     const app = getApp();
-    const nickname = (app && app.globalData && app.globalData.userProfile && app.globalData.userProfile.nickname) || '游客';
+    let nickname = (app && app.globalData && app.globalData.userProfile && app.globalData.userProfile.nickname) || '';
     const imagePath = (this.data.galleryImages || [])[this.data.currentIndex] || '';
     const record = shareUtils.addComment(key, { nickname, content, imagePath });
     const item = { ...record, timeText: shareUtils.timeAgo(record.time) };
     this.setData({ comments: [item, ...this.data.comments], commentDraft: '' });
     // 云端保存（尽力）
-    backend.saveShareComment(this.data.owner, this.data.pid, imagePath, nickname, content);
+    const ensureOpenId = new Promise((resolve) => {
+      if (app && app.openid) { resolve(app.openid); return; }
+      try { wx.cloud.callFunction({ name: 'login' }).then(r => resolve((r && r.result && r.result.openid) || '')).catch(() => resolve('')); } catch (e) { resolve(''); }
+    });
+    ensureOpenId.then((commenterOpenId) => {
+      const nickToUse = nickname || '朋友';
+      backend.saveShareComment(this.data.owner, this.data.pid, imagePath, nickToUse, content, this.data.currentIndex, commenterOpenId);
+    });
   },
   toggleFollow() {
     const key = shareUtils.shareKey(this.data.owner, this.data.pid);

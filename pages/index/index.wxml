@@ -96,6 +96,10 @@
     <view class="settings-button" bindtap="goToSettings">
       <text class="settings-icon">⚙️</text>
     </view>
+    <view class="notifications-button" bindtap="openNotifications">
+      <text class="notifications-icon">🔔</text>
+      <view class="notif-dot" wx:if="{{unreadCount>0}}">{{unreadCount>99? '99+': unreadCount}}</view>
+    </view>
     <view class="friends-button" bindtap="goToFriends" wx:if="{{friendShares.length > 0}}">
       <text class="friends-icon">👥</text>
     </view>

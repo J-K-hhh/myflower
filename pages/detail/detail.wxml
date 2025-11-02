@@ -46,11 +46,12 @@
     </swiper-item>
   </swiper>
 
-  <!-- 分享评论（仅所有者可见） -->
+  <!-- 分享评论和点赞（仅所有者可见） -->
   <view class="content-box" wx:if="{{!readonlyShareView}}">
     <view class="section-title">
       <text class="title-icon">💬</text>
       <text>{{i18n.comments.title}}</text>
+      <text style="margin-left: 8rpx; color: #888;">♡ {{shareLikesCount}}</text>
     </view>
     <view class="comment-list-owner">
       <view class="comment-empty" wx:if="{{!shareCommentsCount}}">{{i18n.comments.none}}</view>

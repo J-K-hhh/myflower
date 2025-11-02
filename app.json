@@ -8,7 +8,8 @@
     "pages/sysconfig/sysconfig",
     "pages/friends/friends",
     "pages/profile/profile",
-    "pages/share/landing"
+    "pages/share/landing",
+    "pages/notifications/notifications"
   ],
   "window": {
     "backgroundTextStyle": "light",
