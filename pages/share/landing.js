@@ -1,6 +1,7 @@
 const backend = require('../../utils/backend_service.js');
 const i18n = require('../../utils/i18n.js');
 const shareUtils = require('../../utils/share_utils.js');
+const shareLoader = require('../../utils/share_loader.js');
 
 Page({
   data: {
@@ -73,13 +74,11 @@ Page({
   loadShare() {
     const { owner, pid, ownerName } = this.data;
     wx.showLoading({ title: '加载中' });
-    backend.loadSharedPlantByOwner(owner, pid, ownerName).then(res => {
-      wx.hideLoading();
-      const plant = res && res.plant ? res.plant : res;
-      if (!plant) {
-        wx.showToast({ title: '未找到分享内容', icon: 'none' });
-        return;
-      }
+    shareLoader.ensureCloudReady()
+      .then(() => shareLoader.loadSharedPlant({ ownerOpenId: owner, plantId: pid, nick: ownerName }))
+      .then(({ plant }) => {
+        wx.hideLoading();
+        if (!plant) { wx.showToast({ title: '未找到分享内容', icon: 'none' }); return; }
       // 展示用图集
       const images = Array.isArray(plant.images) ? plant.images : [];
       const infoPaths = Array.isArray(plant.imageInfos) ? plant.imageInfos.map(i => i && i.path).filter(Boolean) : [];
@@ -127,9 +126,12 @@ Page({
         isFollowed: !!(followInfo && followInfo.key),
         notifyOnUpdate: !!(followInfo && followInfo.notifyOnUpdate)
       });
-    }).catch(() => {
+    })
+    .catch((err) => {
       wx.hideLoading();
-      wx.showToast({ title: '加载失败', icon: 'none' });
+      const msg = (err && (err.errMsg || err.message)) || '';
+      const content = shareLoader.formatShareError(msg);
+      wx.showModal({ title: '加载失败', content, showCancel: false });
     });
   },
   like() {

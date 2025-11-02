@@ -3,6 +3,7 @@ const backend = require('../../utils/backend_service.js');
 const systemConfig = require('../../utils/system_config.js');
 const i18n = require('../../utils/i18n.js');
 const exifUtils = require('../../utils/exif_utils.js');
+const shareLoader = require('../../utils/share_loader.js');
 
 Page({
   data: {
@@ -96,36 +97,31 @@ Page({
     });
   },
 
-  // 加载分享内容（简化版）
+  // 加载分享内容（统一到 share_loader）
   loadSharedPlantRobust: function(ownerOpenId, plantId, shareNickname = '') {
     try { wx.showLoading({ title: this.translate('detail', 'status.loadingShare') }); } catch (e) {}
-    const backend = require('../../utils/backend_service.js');
     const done = () => { try { wx.hideLoading(); } catch (e) {} };
-    backend.loadSharedPlantByOwner(ownerOpenId, plantId, shareNickname).then((res) => {
-      done();
-      const plant = res && res.plant ? res.plant : null;
-      if (plant) {
-        plant.createDate = new Date(plant.createTime).toLocaleDateString();
-        this.setData({ plant, shareOwnerOpenId: ownerOpenId, readonlyShareView: true });
-        this.updatePageTitle(plant, true);
-      } else {
-        this._showShareError(res && res.errMsg);
-      }
-    }).catch((err) => {
-      done();
-      this._showShareError((err && (err.errMsg || err.message)) || '');
-    });
+    shareLoader.ensureCloudReady()
+      .then(() => shareLoader.loadSharedPlant({ ownerOpenId, plantId, nick: shareNickname }))
+      .then(({ plant }) => {
+        done();
+        if (plant) {
+          plant.createDate = plant.createTime ? new Date(plant.createTime).toLocaleDateString() : '';
+          this.setData({ plant, shareOwnerOpenId: ownerOpenId, readonlyShareView: true });
+          this.updatePageTitle(plant, true);
+        } else {
+          this._showShareError('not_found');
+        }
+      })
+      .catch((err) => {
+        done();
+        const msg = (err && (err.errMsg || err.message)) || '';
+        this._showShareError(msg);
+      });
   },
 
   _showShareError: function(errMsg = '') {
-    let content = this.translate('detail', 'errors.plantNotFound');
-    try {
-      const env = (wx.getAccountInfoSync && wx.getAccountInfoSync().miniProgram.envVersion) || 'release';
-      const isPerm = /PERMISSION_DENIED|permission denied/i.test(errMsg || '');
-      if (env === 'develop' || isPerm) {
-        content = '当前版本或权限不允许查看分享内容，请从体验版/正式版打开，或确认已被加入为体验者。';
-      }
-    } catch (e) {}
+    const content = shareLoader.formatShareError(errMsg);
     wx.showModal({ title: this.translate('detail', 'errors.plantNotFound'), content, showCancel: false, success: () => wx.navigateBack() });
   },
 

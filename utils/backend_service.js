@@ -10,7 +10,7 @@ const tencentAdapter = (() => {
     type: 'tencent',
     isAvailable: () => cloud.isCloudAvailable && cloud.isCloudAvailable(),
     init: () => cloud.initCloud && cloud.initCloud(),
-    uploadImage: cloud.uploadImage,
+    uploadImage: cloud.uploadImageWithRetry || cloud.uploadImage,
     getTempUrlsCached: cloud.getTempUrlsCached,
     savePlantList: cloud.savePlantList,
     loadPlantList: cloud.loadPlantList,

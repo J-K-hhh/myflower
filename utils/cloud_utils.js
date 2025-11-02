@@ -38,9 +38,9 @@ function isCloudAvailable() {
   return initCloud();
 }
 
-function getOpenId() {
+function getOpenId(force = false) {
   return new Promise((resolve, reject) => {
-    if (currentOpenId) { resolve(currentOpenId); return; }
+    if (!force && currentOpenId) { resolve(currentOpenId); return; }
     if (!initCloud()) {
       console.warn('[cloud_utils] Cloud not ready, cannot get openid');
       wx.showToast({ title: translate('common', 'storage.cloudUnavailable'), icon: 'none' });
@@ -68,25 +68,58 @@ function uploadImage(filePath) {
       reject(new Error('Cloud not initialized'));
       return;
     }
-    getOpenId().then(openid => {
-      if (!openid) { reject(new Error('Missing openid')); return; }
+    // Helper: compress if large (>2MB)
+    const maybeCompress = (path) => new Promise((res) => {
+      try {
+        wx.getFileInfo({ filePath: path, success: (info) => {
+          const size = Number(info && info.size);
+          if (size > 2 * 1024 * 1024 && wx.compressImage) {
+            wx.compressImage({ src: path, quality: 60, success: r => res((r && r.tempFilePath) || path), fail: () => res(path) });
+          } else { res(path); }
+        }, fail: () => res(path) });
+      } catch (e) { res(path); }
+    });
+
+    const doUpload = (openid, path) => {
       const fileName = `${Date.now()}_${Math.floor(Math.random() * 100000)}.jpg`;
       const cloudPath = `data/plants/${openid}/${fileName}`;
       console.log('[cloud_utils] Uploading image to:', cloudPath);
       wx.cloud.uploadFile({
         cloudPath: cloudPath,
-        filePath: filePath,
+        filePath: path,
         success: (res) => {
           console.log('[cloud_utils] Upload success, fileID:', res && res.fileID);
           resolve(res.fileID);
         },
         fail: (err) => {
           console.error('[cloud_utils] Upload failed:', err);
-          wx.showToast({ title: translate('common', 'storage.uploadFailed'), icon: 'none' });
-          reject(err);
+          reject({ errCode: err && err.errCode, errMsg: (err && (err.errMsg || err.message)) || 'upload_failed' });
         }
       });
+    };
+
+    getOpenId().then(openid => {
+      if (!openid) { reject(new Error('Missing openid')); return; }
+      maybeCompress(filePath).then(p => doUpload(openid, p)).catch(reject);
     }).catch(reject);
+  });
+}
+
+// Retry wrapper for upload with once retry on -504003/timeout-like errors
+function uploadImageWithRetry(filePath) {
+  return new Promise((resolve, reject) => {
+    uploadImage(filePath).then(resolve).catch(err => {
+      const code = err && (err.errCode || err.code);
+      const msg = (err && err.errMsg) || '';
+      const maybeTimeout = /timeout|ETIMEDOUT|request:fail/i.test(msg || '');
+      if (code === -504003 || maybeTimeout) {
+        console.warn('[cloud_utils] Retry upload after refreshing openid');
+        currentOpenId = '';
+        getOpenId(true).then(() => uploadImage(filePath).then(resolve).catch(reject));
+      } else {
+        reject(err);
+      }
+    });
   });
 }
 
@@ -378,6 +411,7 @@ function deleteCloudFiles(fileIdList) {
 }
 
 module.exports.deleteCloudFiles = deleteCloudFiles;
+module.exports.uploadImageWithRetry = uploadImageWithRetry;
 
 // (Snapshot helpers removed)
 

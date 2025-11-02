@@ -143,7 +143,7 @@ Page({
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
-      sizeType: ['original'],
+      sizeType: ['compressed', 'original'],
       sourceType: ['album', 'camera'],
       camera: 'back',
       success: (res) => {
@@ -168,9 +168,14 @@ Page({
             })
             .catch((err) => {
               console.warn('[add] upload failed, fallback to saveFile:', err);
+              const code = err && (err.errCode || err.code);
+              let tip = this.translate('add', 'apiTest.cloudUploadFailedContent');
+              if (code === -504003) {
+                tip = '云存储权限或登录状态异常（错误码 -504003）。已改为本地保存，请在云开发控制台检查存储权限规则与体验版/成员设置。';
+              }
               wx.showModal({
                 title: this.translate('add', 'apiTest.cloudUploadFailedTitle'),
-                content: this.translate('add', 'apiTest.cloudUploadFailedContent'),
+                content: tip,
                 showCancel: false,
                 confirmText: this.translate('common', 'gotIt')
               });

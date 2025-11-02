@@ -32,18 +32,18 @@ Page({
 
       if (!forceRefresh) return;
 
+      const shareLoader = require('../../utils/share_loader.js');
       const tasks = mapped.map(card => new Promise(resolve => {
-        backend.loadSharedPlantByOwner(card.ownerOpenId, card.plantId, card.ownerNickname || '').then(res => {
-          const plant = res && res.plant ? res.plant : res;
-          if (plant) {
-            const latest = shareUtils.getLatestStatus(plant);
-            // 优先使用plant.ownerNickname（来自云函数的真实昵称）
-            const ownerNickname = (plant.ownerNickname && plant.ownerNickname !== '朋友') ? plant.ownerNickname : '';
-            resolve({ ...card, ownerNickname, lastStatus: latest, thumb: (Array.isArray(plant.images) && plant.images[0]) || card.thumb });
-          } else {
-            resolve(card);
-          }
-        }).catch(() => resolve(card));
+        shareLoader.ensureCloudReady()
+          .then(() => shareLoader.loadSharedPlant({ ownerOpenId: card.ownerOpenId, plantId: card.plantId, nick: card.ownerNickname || '' }))
+          .then(({ plant }) => {
+            if (plant) {
+              const latest = shareUtils.getLatestStatus(plant);
+              const ownerNickname = (plant.ownerNickname && plant.ownerNickname !== '朋友') ? plant.ownerNickname : '';
+              resolve({ ...card, ownerNickname, lastStatus: latest, thumb: (Array.isArray(plant.images) && plant.images[0]) || card.thumb });
+            } else { resolve(card); }
+          })
+          .catch(() => resolve(card));
       }));
       Promise.all(tasks).then(updated => this.setData({ list: updated }));
     } catch (e) {

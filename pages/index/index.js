@@ -142,16 +142,17 @@ Page({
       this.setData({ friendShares: recent, friendSharesLoading: true });
       if (!forceRefresh) { this.setData({ friendSharesLoading: false }); return; }
 
+      const shareLoader = require('../../utils/share_loader.js');
       const tasks = recent.map(card => new Promise(resolve => {
-        backend.loadSharedPlantByOwner(card.ownerOpenId, card.plantId).then(res => {
-          const plant = res && res.plant ? res.plant : res;
-          if (plant) {
-            const latest = shareUtils.getLatestStatus(plant);
-            resolve({ ...card, lastStatus: latest, thumb: (Array.isArray(plant.images) && plant.images[0]) || card.thumb });
-          } else {
-            resolve(card);
-          }
-        }).catch(() => resolve(card));
+        shareLoader.ensureCloudReady()
+          .then(() => shareLoader.loadSharedPlant({ ownerOpenId: card.ownerOpenId, plantId: card.plantId }))
+          .then(({ plant }) => {
+            if (plant) {
+              const latest = shareUtils.getLatestStatus(plant);
+              resolve({ ...card, lastStatus: latest, thumb: (Array.isArray(plant.images) && plant.images[0]) || card.thumb });
+            } else { resolve(card); }
+          })
+          .catch(() => resolve(card));
       }));
 
       Promise.all(tasks).then(updated => {
